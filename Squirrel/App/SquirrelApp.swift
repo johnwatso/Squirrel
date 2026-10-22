@@ -55,16 +55,6 @@ struct SquirrelApp: App {
         .defaultSize(width: 500, height: 620)
         .commands { SquirrelCommands(appModel: appModel) }
 
-        Window("Power History", id: AppModel.historyWindowID) {
-            PowerHistoryWindow()
-                .environmentObject(appModel)
-                .environmentObject(appModel.settings)
-                .environmentObject(appModel.history)
-                .onAppear { appModel.setWindow(.history, visible: true) }
-                .onDisappear { appModel.setWindow(.history, visible: false) }
-        }
-        .defaultSize(width: 620, height: 680)
-
         SwiftUI.Settings {
             PreferencesView()
                 .environmentObject(appModel)
@@ -98,12 +88,6 @@ private struct MenuBarLabel: View {
                 openWindow(id: AppModel.assistantWindowID)
                 NSApp.activate(ignoringOtherApps: true)
                 appModel.shouldOpenAssistantWindow = false
-            }
-            .onReceive(appModel.$shouldOpenHistoryWindow) { shouldOpen in
-                guard shouldOpen else { return }
-                openWindow(id: AppModel.historyWindowID)
-                NSApp.activate(ignoringOtherApps: true)
-                appModel.shouldOpenHistoryWindow = false
             }
     }
 

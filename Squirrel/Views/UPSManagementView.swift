@@ -22,6 +22,9 @@ struct UPSManagementView: View {
                 splitView
             }
         }
+        .sheet(isPresented: $appModel.isShowingPowerHistory) {
+            PowerHistorySheet()
+        }
         .onAppear(perform: validateSelection)
         .onChange(of: settings.devices) { _ in validateSelection() }
         .confirmationDialog(

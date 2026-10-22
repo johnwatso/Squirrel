@@ -7,7 +7,6 @@ import SwiftUI
 final class AppModel: ObservableObject {
     static let manageWindowID = "manage-ups"
     static let assistantWindowID = "connect-ups"
-    static let historyWindowID = "power-history"
 
     /// Squirrel's windows. The Dock icon follows whether any of them is on
     /// screen, so the app is a menu bar item when it is only monitoring and a
@@ -16,7 +15,6 @@ final class AppModel: ObservableObject {
         case manage
         case assistant
         case settings
-        case history
     }
 
     let settings: SettingsStore
@@ -40,8 +38,8 @@ final class AppModel: ObservableObject {
 
     @Published var shouldOpenManageWindow = false
     @Published var shouldOpenAssistantWindow = false
-    @Published var shouldOpenHistoryWindow = false
-    /// Which UPS the history window shows. Set by whoever opens it, so the
+    @Published var isShowingPowerHistory = false
+    /// Which UPS the history sheet shows. Set by whoever opens it, so the
     /// menu bar and the main window each open the history they mean.
     @Published var historyDeviceID: UUID?
     @Published private(set) var visibleWindows: Set<WindowKind> = []
@@ -103,7 +101,8 @@ final class AppModel: ObservableObject {
 
     func showHistory(for device: UPSDevice? = nil) {
         historyDeviceID = device?.id ?? historyDeviceID ?? primaryDevice?.id
-        shouldOpenHistoryWindow = true
+        isShowingPowerHistory = true
+        triggerOpenManageWindow()
     }
 
     // MARK: - Devices

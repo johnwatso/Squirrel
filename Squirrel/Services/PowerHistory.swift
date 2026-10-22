@@ -54,7 +54,7 @@ struct PowerEvent: Identifiable, Equatable, Sendable {
     var detail: String?
 }
 
-/// The spans the history window offers, each with a bucket size that keeps
+/// The spans the history sheet offers, each with a bucket size that keeps
 /// the chart to a few hundred points however long the range.
 enum HistoryRange: String, CaseIterable, Identifiable, Sendable {
     case day

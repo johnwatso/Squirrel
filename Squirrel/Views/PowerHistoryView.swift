@@ -166,7 +166,7 @@ struct HistoryChart: View {
 // MARK: - Preview in the main window
 
 /// A quiet strip in the main window: the last day of power at a glance, and
-/// the most recent event. The full history lives in its own window.
+/// the most recent event. The full history opens in a sheet.
 struct PowerHistoryPreviewSection: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var history: PowerHistory
@@ -238,11 +238,12 @@ struct PowerHistoryPreviewSection: View {
     }
 }
 
-// MARK: - History window
+// MARK: - History sheet
 
 /// The full history: a chart for each measurement this UPS reports, and the
 /// event log underneath.
-struct PowerHistoryWindow: View {
+struct PowerHistorySheet: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var history: PowerHistory
@@ -250,6 +251,7 @@ struct PowerHistoryWindow: View {
     @AppStorage("historyRange") private var range: HistoryRange = .day
     @State private var samples: [PowerSample] = []
     @State private var events: [PowerEvent] = []
+    @State private var recentEvents: [PowerEvent] = []
     @State private var hasLoaded = false
     @State private var loadedDeviceID: UUID?
     @State private var loadedRange: HistoryRange?
@@ -263,32 +265,72 @@ struct PowerHistoryWindow: View {
     }
 
     var body: some View {
-        content
-            .frame(minWidth: 460, minHeight: 360)
-            .navigationTitle("Power History")
-            .navigationSubtitle(device?.displayName ?? "")
-            .toolbar {
-                ToolbarItemGroup {
-                    if settings.devices.count > 1 {
-                        Picker("UPS", selection: deviceSelection) {
-                            ForEach(settings.devices) { device in
-                                Text(device.displayName).tag(Optional(device.id))
-                            }
+        VStack(spacing: 0) {
+            header
+            Divider()
+            if history.isAvailable, hasLoaded, loadedDeviceID == device?.id, loadedRange == range {
+                PowerHistorySummary(events: recentEvents)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
+            }
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Divider()
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+        }
+        .frame(minWidth: 620, idealWidth: 680, maxWidth: 720,
+               minHeight: 480, idealHeight: 700, maxHeight: 750)
+        .task(id: LoadKey(device: device?.id, range: range, revision: history.revision)) {
+            await load()
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Power History")
+                    .font(.title3.weight(.bold))
+                Text(device.map { "Power readings and events for \($0.displayName)." }
+                     ?? "Power readings and events for your UPS.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                if settings.devices.count > 1 {
+                    Picker("UPS", selection: deviceSelection) {
+                        ForEach(settings.devices) { device in
+                            Text(device.displayName).tag(Optional(device.id))
                         }
-                        .help("Choose which UPS to show")
                     }
-                    Picker("Range", selection: $range) {
-                        ForEach(HistoryRange.allCases) { range in
-                            Text(range.title).tag(range)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .help("Choose how far back to show")
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .accessibilityLabel("UPS")
+                    .help("Choose which UPS to show")
                 }
+                Picker("Range", selection: $range) {
+                    ForEach(HistoryRange.allCases) { range in
+                        Text(range.title).tag(range)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+                .accessibilityLabel("History range")
+                .help("Choose how far back to show")
+                Spacer(minLength: 0)
             }
-            .task(id: LoadKey(device: device?.id, range: range, revision: history.revision)) {
-                await load()
-            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
@@ -370,13 +412,18 @@ struct PowerHistoryWindow: View {
         guard let device else { return }
         let requestedID = device.id
         let requestedRange = range
-        let since = Date().addingTimeInterval(-requestedRange.duration)
+        let now = Date()
+        let since = now.addingTimeInterval(-requestedRange.duration)
         let nextSamples = await history.samples(for: requestedID, in: requestedRange)
         let nextEvents = await history.events(for: requestedID, since: since)
+        let nextRecentEvents = await history.events(
+            for: requestedID, since: now.addingTimeInterval(-HistoryRange.day.duration), limit: -1
+        )
         // A cancelled load must never put one UPS's history beneath another's name.
         guard !Task.isCancelled, self.device?.id == requestedID, range == requestedRange else { return }
         samples = nextSamples
         events = nextEvents
+        recentEvents = nextRecentEvents
         loadedDeviceID = requestedID
         loadedRange = requestedRange
         hasLoaded = true
@@ -386,6 +433,48 @@ struct PowerHistoryWindow: View {
         let device: UUID?
         let range: HistoryRange
         let revision: Int
+    }
+}
+
+/// A fixed daily overview, independent of the graph's selected date range.
+private struct PowerHistorySummary: View {
+    let events: [PowerEvent]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("Last 24 hours")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 4)
+
+            metric(symbol: "bolt.slash.fill", color: .orange, kind: .powerLost, label: "Outages")
+            Divider().frame(height: 28)
+            metric(symbol: "arrow.triangle.2.circlepath", color: .blue,
+                   kind: .communicationRestored, label: "Reconnects")
+            Divider().frame(height: 28)
+            metric(symbol: "battery.25percent", color: .red, kind: .lowBattery, label: "Low battery")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.separator.opacity(0.6)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func metric(symbol: String, color: Color, kind: PowerEventKind, label: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(events.filter { $0.kind == kind }.count)")
+                    .font(.headline.monospacedDigit())
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
