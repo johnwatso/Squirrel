@@ -1,0 +1,128 @@
+# Source of truth for Squirrel.xcodeproj. Regenerate with:  xcodegen generate
+# The generated .xcodeproj is committed, so ShipHook builds it without needing
+# XcodeGen on the build machine.
+name: Squirrel
+options:
+  bundleIdPrefix: io.github.johnwatso
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.5
+
+targets:
+  # AppKit-free by design: everything needed to make the Mac behave as though a
+  # UPS were plugged in. Kept a separate module so a LaunchDaemon can link the
+  # same code later without a rewrite.
+  SquirrelCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: SquirrelCore
+    settings:
+      base:
+        PRODUCT_NAME: SquirrelCore
+        SKIP_INSTALL: YES
+
+  Squirrel:
+    type: application
+    platform: macOS
+    sources:
+      - path: Squirrel
+      - path: Squirrel.icon
+        buildPhase: resources
+    dependencies:
+      - target: SquirrelCore
+      - package: Sparkle
+        product: Sparkle
+      - target: squirrelctl
+        copy:
+          destination: executables
+    # XcodeGen GENERATES this plist, so every key must live here. Editing
+    # Squirrel/Info.plist by hand is pointless: the next generate overwrites it.
+    info:
+      path: Squirrel/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconName: Squirrel
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "13.0"
+        # Menu bar only, no Dock icon.
+        LSUIElement: true
+        NSLocalNetworkUsageDescription: Squirrel needs local network access to reach your UPS's NUT server.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # A terminated Squirrel is a vanished UPS: the power source dies with
+        # the process that published it, so the system must not reap us while idle.
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+        SUFeedURL: $(SPARKLE_FEED_URL)
+        SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: false
+    entitlements:
+      path: Squirrel/Squirrel.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.johnwatso.Squirrel
+        PRODUCT_NAME: Squirrel
+        # Set these to Squirrel's own HTTPS appcast and EdDSA public key before release.
+        # Empty in development: do not contact an invented feed or reuse another app's key.
+        SPARKLE_FEED_URL: ""
+        SPARKLE_PUBLIC_ED_KEY: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: Squirrel
+        INFOPLIST_KEY_CFBundleDisplayName: Squirrel
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        COMBINE_HIDPI_IMAGES: YES
+
+  # Local automation. Talks to the running app over distributed notifications;
+  # no network port, no privileges. Copied into Squirrel.app/Contents/MacOS.
+  squirrelctl:
+    type: tool
+    platform: macOS
+    sources:
+      - path: SquirrelCLI
+    dependencies:
+      - target: SquirrelCore
+    settings:
+      base:
+        PRODUCT_NAME: squirrelctl
+        SKIP_INSTALL: YES
+
+  SquirrelTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: SquirrelTests
+    dependencies:
+      - target: Squirrel
+      - target: SquirrelCore
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.johnwatso.SquirrelTests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Squirrel:
+    build:
+      targets:
+        Squirrel: all
+        SquirrelTests: [test]
+    test:
+      targets:
+        - SquirrelTests
