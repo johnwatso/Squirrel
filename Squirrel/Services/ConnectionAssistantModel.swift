@@ -113,7 +113,7 @@ final class ConnectionAssistantModel: ObservableObject {
     /// The server turned this Mac away by address: a permitted-list problem
     /// on the server, which no username fixes.
     @Published private(set) var isRefusedByServer = false
-    private var serverHostName: String?
+    private(set) var serverHostName: String?
 
     @Published private(set) var stages: [ConnectionStage] = []
     @Published private(set) var outcome: Outcome?
@@ -535,7 +535,7 @@ final class ConnectionAssistantModel: ObservableObject {
             ?? settings.devices.first {
                 $0.host == configuration.host && $0.port == configuration.port && $0.upsName == candidate.name
             }
-        return UPSDevice(
+        var device = UPSDevice(
             id: existing?.id ?? UUID(),
             // A name the user gave it is theirs: reconnecting must not
             // overwrite it with whatever the driver calls the model.
@@ -547,6 +547,9 @@ final class ConnectionAssistantModel: ObservableObject {
             publishesToSystem: existing?.publishesToSystem ?? (settings.systemDevice == nil),
             pollInterval: existing?.pollInterval ?? 5
         )
+        // Likewise a picture the user chose by hand.
+        device.illustrationOverride = existing?.illustrationOverride
+        return device
     }
 
     private func chosenName(for candidate: UPSCandidate, existing: UPSDevice?, reading: UPSReading) -> String {

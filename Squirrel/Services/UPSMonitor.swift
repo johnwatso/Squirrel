@@ -30,6 +30,8 @@ final class UPSMonitor: ObservableObject {
     private let history: PowerHistory
     private let log = Logger(subsystem: "io.github.johnwatso.Squirrel", category: "Monitor")
 
+    private var restartGeneration = 0
+    private var publicationOwner: UUID?
     private var pollTasks: [UUID: Task<Void, Never>] = [:]
     private var clients: [UUID: NUTClient] = [:]
     /// When the UPS was first seen on battery, for debouncing.
@@ -69,14 +71,26 @@ final class UPSMonitor: ObservableObject {
 
     func start() {
         guard !isPaused else { return }
+        publicationOwner = settings.preferences.publishPowerSource ? settings.systemDevice?.id : nil
         for device in settings.devices where pollTasks[device.id] == nil {
             startPolling(device)
         }
     }
 
     func restart() {
+        let nextOwner = settings.preferences.publishPowerSource ? settings.systemDevice?.id : nil
+        let ownerChanged = publicationOwner != nextOwner
         stopAll()
-        start()
+        let generation = restartGeneration
+        Task {
+            guard generation == restartGeneration else { return }
+            if ownerChanged {
+                sleepAssertion.endHoldingAwake()
+                await publisher.withdraw()
+            }
+            guard generation == restartGeneration, !isPaused else { return }
+            start()
+        }
     }
 
     /// Pausing withdraws the power source too: a paused monitor must not keep
@@ -136,6 +150,7 @@ final class UPSMonitor: ObservableObject {
     }
 
     private func stopAll() {
+        restartGeneration &+= 1
         // A restart is not a power event: forget the last condition so
         // reconnecting does not announce a change that never happened.
         lastCondition.removeAll()
@@ -161,6 +176,7 @@ final class UPSMonitor: ObservableObject {
                 do {
                     try await client.connect()
                     let reading = try await client.reading(ups: device.upsName)
+                    guard !Task.isCancelled else { break }
                     await self?.handle(reading: reading, for: device)
                     if !haveCommands {
                         let commands = (try? await client.listCommands(ups: device.upsName)) ?? []
@@ -168,6 +184,7 @@ final class UPSMonitor: ObservableObject {
                         haveCommands = true
                     }
                 } catch {
+                    guard !Task.isCancelled else { break }
                     await self?.handle(error: error, for: device)
                 }
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
@@ -273,13 +290,13 @@ final class UPSMonitor: ObservableObject {
 
         // Never leave macOS believing a stale reading. If this is the UPS the
         // Mac depends on, say "not present" rather than something reassuring.
-        guard device.publishesToSystem, settings.preferences.publishPowerSource else { return }
+        guard !Task.isCancelled, settings.systemDevice?.id == device.id, settings.preferences.publishPowerSource else { return }
         _ = try? await publisher.publish(.unavailable(name: device.displayName))
     }
 
     /// Applies the debounce and hands the result to macOS.
     private func updateSystem(with reading: UPSReading, for device: UPSDevice) async {
-        guard device.publishesToSystem, settings.preferences.publishPowerSource else { return }
+        guard !Task.isCancelled, settings.systemDevice?.id == device.id, settings.preferences.publishPowerSource else { return }
 
         var snapshot = PowerSourceSnapshot.from(
             reading: reading,

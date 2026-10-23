@@ -9,10 +9,16 @@ struct PreferencesView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             PowerSettingsView()
                 .tabItem { Label("Power", systemImage: "bolt") }
+            UPSDevicesView()
+                .tabItem { Label("UPS Devices", systemImage: "externaldrive") }
+            NotificationSettingsView()
+                .tabItem { Label("Notifications", systemImage: "bell") }
+            AppearanceSettingsView()
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
         }
         // A fixed, compact size keeps the window from jumping between tabs;
         // each tab's form scrolls if it ever needs more room.
-        .frame(width: 520, height: 480, alignment: .top)
+        .frame(width: 620, height: 540, alignment: .top)
     }
 }
 
@@ -25,16 +31,6 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section {
-                Picker("Menu bar", selection: $settings.preferences.menuBarDisplay) {
-                    ForEach(MenuBarDisplay.allCases, id: \.self) { option in
-                        Text(option.label).tag(option)
-                    }
-                }
-            } footer: {
-                SettingsFootnote("Squirrel's icon always shows the UPS's state. This chooses whether the battery percentage sits beside it.")
-            }
-
             Section {
                 Toggle("Start Squirrel at login", isOn: launchAtLoginBinding)
                 if loginItem.requiresApproval {
@@ -51,29 +47,6 @@ private struct GeneralSettingsView: View {
                 SettingsFootnote("Squirrel publishes the UPS for as long as it is running, so macOS only sees your UPS while Squirrel is open.")
             }
 
-            Section {
-                Toggle("Show notifications", isOn: notificationsBinding)
-                Group {
-                    Toggle("Mains power lost or restored", isOn: $settings.preferences.notifyPowerChanges)
-                    Toggle("Low battery", isOn: $settings.preferences.notifyLowBattery)
-                    Toggle("UPS or NUT server unavailable", isOn: $settings.preferences.notifyConnectionProblems)
-                }
-                .disabled(!settings.preferences.showNotifications)
-                LabeledContent("Permission", value: notifications.statusDescription)
-                if settings.preferences.showNotifications, notifications.authorizationStatus == .notDetermined {
-                    SettingsNote("Notification setup is incomplete. Allow notifications to receive UPS alerts.", symbol: "exclamationmark.circle", tint: .orange)
-                    Button("Allow Notifications…") {
-                        Task { await notifications.requestAuthorizationIfNeeded() }
-                    }
-                }
-                if notifications.isDenied {
-                    Button("Open Notification Settings") { NotificationService.openNotificationSettings() }
-                }
-            } header: {
-                Text("Notifications")
-            } footer: {
-                SettingsFootnote("One notification per change, never per reading. A brief network hiccup is not reported; a connection problem must last at least 15 seconds. macOS's notification settings still apply.")
-            }
         }
         .formStyle(.grouped)
         .task {
@@ -97,6 +70,43 @@ private struct GeneralSettingsView: View {
         )
     }
 
+
+}
+
+private struct NotificationSettingsView: View {
+    @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var notifications: NotificationService
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Show notifications", isOn: notificationsBinding)
+                Group {
+                    Toggle("Mains power lost or restored", isOn: $settings.preferences.notifyPowerChanges)
+                    Toggle("Low battery", isOn: $settings.preferences.notifyLowBattery)
+                    Toggle("UPS or NUT server unavailable", isOn: $settings.preferences.notifyConnectionProblems)
+                }
+                .disabled(!settings.preferences.showNotifications)
+                LabeledContent("Permission", value: notifications.statusDescription)
+                if settings.preferences.showNotifications, notifications.authorizationStatus == .notDetermined {
+                    SettingsNote("Notification setup is incomplete. Allow notifications to receive UPS alerts.", symbol: "exclamationmark.circle", tint: .orange)
+                    Button("Allow Notifications…") {
+                        Task { await notifications.requestAuthorizationIfNeeded() }
+                    }
+                }
+                if notifications.isDenied {
+                    Button("Open Notification Settings") { NotificationService.openNotificationSettings() }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                SettingsFootnote("One notification per change, never per reading. A brief network hiccup is not reported; a connection problem must last at least 15 seconds. macOS's notification settings still apply.")
+            }
+        }.formStyle(.grouped)
+        .task { await notifications.refreshAuthorizationStatus() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await notifications.refreshAuthorizationStatus() }
+        }
+    }
     private var notificationsBinding: Binding<Bool> {
         Binding(
             get: { settings.preferences.showNotifications },
@@ -110,6 +120,23 @@ private struct GeneralSettingsView: View {
     }
 }
 
+private struct AppearanceSettingsView: View {
+    @EnvironmentObject private var settings: SettingsStore
+    var body: some View {
+        Form {
+            Section {
+                Picker("Menu bar", selection: $settings.preferences.menuBarDisplay) {
+                    ForEach(MenuBarDisplay.allCases, id: \.self) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+            } footer: {
+                SettingsFootnote("Squirrel's icon always shows the UPS's state. This chooses whether the battery percentage sits beside it.")
+            }
+        }.formStyle(.grouped)
+    }
+}
+
 // MARK: - Power
 
 private struct PowerSettingsView: View {
@@ -119,6 +146,7 @@ private struct PowerSettingsView: View {
 
     var body: some View {
         Form {
+            NativePowerSettings(service: appModel.powerSchedule)
             Section {
                 Toggle("Present the UPS to macOS", isOn: $settings.preferences.publishPowerSource)
                 LabeledContent("Status") {
@@ -161,7 +189,8 @@ private struct PowerSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { appModel.refreshSystemPowerSource() }
+        .onAppear { appModel.refreshSystemPowerSource(); appModel.refreshPowerProfileAdvice() }
+        .onChange(of: settings.preferences.publishPowerSource) { _ in monitor.restart() }
     }
 
     private static let debounceChoices: [TimeInterval] = [0, 5, 10, 20, 30, 60]
@@ -224,5 +253,28 @@ private struct SettingsNote: View {
             .font(.subheadline)
             .foregroundStyle(tint)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct NativePowerSettings: View {
+    @EnvironmentObject private var appModel: AppModel
+    @ObservedObject var service: PowerScheduleService
+    @State private var showingSchedule = false
+    var body: some View {
+        Section("Mac Power") {
+            Toggle("Restart after power failure", isOn: Binding(
+                get: { appModel.powerProfileAdvice.autoRestartEnabled ?? false },
+                set: { value in Task { await service.setAutoRestart(value); appModel.refreshPowerProfileAdvice() } }
+            ))
+            .disabled(appModel.powerProfileAdvice.autoRestartSupported != true || appModel.powerProfileAdvice.autoRestartEnabled == nil || service.isApplying)
+            if appModel.powerProfileAdvice.autoRestartSupported != true {
+                Text("This Mac does not report support for automatic restart.").font(.caption).foregroundStyle(.secondary)
+            }
+            Text("Recovery requires the right hardware and an actual power interruption. A normal shutdown while the UPS stays powered does not guarantee automatic restart.")
+                .font(.caption).foregroundStyle(.secondary)
+            Button("Power Schedule…") { showingSchedule = true }
+            if let error = service.lastError { Text(error).foregroundStyle(.orange) }
+        }
+        .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: service) }
     }
 }

@@ -14,6 +14,12 @@ public struct DiscoveredNUTServer: Identifiable, Sendable, Equatable, Hashable {
     /// The `LIST UPS` description for each UPS, where the server set one.
     /// Often the only clue to what kind of server this is.
     public let upsDescriptions: [String: String]
+    /// What each UPS reports as its maker and model, where the server lets a
+    /// stranger read them. Enough to draw the right UPS before connecting.
+    public let upsManufacturers: [String: String]
+    public let upsModels: [String: String]
+    /// Each UPS's `ups.status` at the moment it was found, e.g. "OL".
+    public let upsStatuses: [String: String]
     /// The server spoke NUT but would not list its devices unauthenticated.
     public let requiresAuthentication: Bool
     /// The server answered `ACCESS-DENIED`: it is refusing this Mac by
@@ -35,6 +41,9 @@ public struct DiscoveredNUTServer: Identifiable, Sendable, Equatable, Hashable {
         hostName: String? = nil,
         upsNames: [String] = [],
         upsDescriptions: [String: String] = [:],
+        upsManufacturers: [String: String] = [:],
+        upsModels: [String: String] = [:],
+        upsStatuses: [String: String] = [:],
         requiresAuthentication: Bool = false,
         deniedAccess: Bool = false
     ) {
@@ -43,6 +52,9 @@ public struct DiscoveredNUTServer: Identifiable, Sendable, Equatable, Hashable {
         self.hostName = hostName
         self.upsNames = upsNames
         self.upsDescriptions = upsDescriptions
+        self.upsManufacturers = upsManufacturers
+        self.upsModels = upsModels
+        self.upsStatuses = upsStatuses
         self.requiresAuthentication = requiresAuthentication
         self.deniedAccess = deniedAccess
     }
@@ -257,12 +269,26 @@ public enum NUTDiscovery {
         var descriptions: [String: String] = [:]
         while let line = await session.readLine(before: deadline) {
             if line == "END LIST UPS" {
+                // Still on the one connection: what each UPS says it is.
+                var manufacturers: [String: String] = [:]
+                var models: [String: String] = [:]
+                var statuses: [String: String] = [:]
+                for name in names.prefix(4) {
+                    var maker = await variable("device.mfr", ups: name, session: session, before: deadline)
+                    if maker == nil { maker = await variable("ups.mfr", ups: name, session: session, before: deadline) }
+                    manufacturers[name] = maker
+                    models[name] = await variable("ups.model", ups: name, session: session, before: deadline)
+                    statuses[name] = await variable("ups.status", ups: name, session: session, before: deadline)
+                }
                 return DiscoveredNUTServer(
                     host: host,
                     port: port,
                     hostName: reverseDNSName(for: host),
                     upsNames: names,
-                    upsDescriptions: descriptions
+                    upsDescriptions: descriptions,
+                    upsManufacturers: manufacturers.compactMapValues { $0 },
+                    upsModels: models.compactMapValues { $0 },
+                    upsStatuses: statuses.compactMapValues { $0 }
                 )
             }
             if NUTError(errorLine: line) != nil { return nil }
@@ -275,6 +301,17 @@ public enum NUTDiscovery {
             }
         }
         return nil
+    }
+
+    /// One `GET VAR` on the probe's connection. Nil for anything but a value,
+    /// including the error a server gives for a variable it doesn't have.
+    private static func variable(_ variable: String, ups: String, session: ProbeSession, before deadline: Date) async -> String? {
+        guard await session.send(NUTProtocol.command("GET", ["VAR", ups, variable]) + "\n"),
+              let line = await session.readLine(before: deadline)
+        else { return nil }
+        let tokens = NUTProtocol.tokenize(line)
+        guard tokens.count >= 4, tokens[0] == "VAR", !tokens[3].isEmpty else { return nil }
+        return tokens[3]
     }
 
     /// The name the network knows this address by, or nil. Only ever called

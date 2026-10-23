@@ -20,6 +20,7 @@ final class AppModel: ObservableObject {
     let settings: SettingsStore
     let monitor: UPSMonitor
     let sleepAssertion: SleepAssertionService
+    let powerSchedule = PowerScheduleService()
     let publisher: PowerSourcePublisher
     let discovery = NUTDiscoveryService()
     let loginItem = LoginItemService()
@@ -75,6 +76,8 @@ final class AppModel: ObservableObject {
         Task { await notifications.refreshAuthorizationStatus() }
         monitor.start()
         refreshPowerProfileAdvice()
+        powerSchedule.refresh()
+        observeSystemPowerEvents()
         SquirrelIntentBridge.configure(with: self)
         CommandService.start()
         // macOS's own settings can change while Squirrel is open; reading
@@ -87,6 +90,7 @@ final class AppModel: ObservableObject {
             MainActor.assumeIsolated {
                 self?.refreshPowerProfileAdvice()
                 self?.refreshSystemPowerSource()
+                self?.powerSchedule.refresh()
             }
         }
     }
@@ -105,6 +109,19 @@ final class AppModel: ObservableObject {
         triggerOpenManageWindow()
     }
 
+    private func observeSystemPowerEvents() {
+        for (name, kind) in [(NSWorkspace.didWakeNotification, PowerEventKind.systemWake),
+                             (NSWorkspace.willSleepNotification, .systemSleep),
+                             (NSWorkspace.willPowerOffNotification, .systemShutdown)] {
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let device = self.settings.systemDevice else { return }
+                    self.history.record(kind, for: device.id, detail: "Reported by macOS. The cause and completion are not verified.")
+                }
+            }
+        }
+    }
+
     // MARK: - Devices
 
     /// A friendly name is also the name macOS shows in System Settings, so a
@@ -119,13 +136,18 @@ final class AppModel: ObservableObject {
         refreshSystemPowerSource()
     }
 
+    /// Pins the dashboard picture for a UPS Squirrel recognised wrongly, or
+    /// returns it to automatic with nil.
+    func setIllustration(_ kind: UPSIllustrationKind?, for device: UPSDevice) {
+        guard var updated = settings.device(id: device.id) else { return }
+        updated.illustrationOverride = kind?.rawValue
+        settings.upsert(updated)
+    }
+
     /// The Mac has one set of UPS shutdown rules, so only one UPS can be the
     /// one it depends on.
     func useForMacProtection(_ device: UPSDevice) {
-        for var other in settings.devices {
-            other.publishesToSystem = other.id == device.id
-            settings.upsert(other)
-        }
+        settings.setProtectionDevice(device.id)
         monitor.restart()
         refreshSystemPowerSource()
     }

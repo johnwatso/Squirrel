@@ -94,12 +94,26 @@ struct AssistantSymbolTile: View {
     }
 }
 
+/// The UPS drawing at row size, in place of a symbol tile once Squirrel
+/// knows what the UPS is.
+struct AssistantIllustrationTile: View {
+    let kind: UPSIllustrationKind
+    var height: CGFloat = 32
+
+    var body: some View {
+        UPSDeviceIllustration(kind: kind, cornerRadius: height * 0.28)
+            .frame(width: height * 115 / 88, height: height)
+    }
+}
+
 /// A radio-style choice. Native `Picker(.radioGroup)` cannot carry a detail
 /// line or a nested list, which both of the choices here need.
 struct AssistantChoiceRow<Accessory: View>: View {
     let title: String
     var detail: String?
     var symbol: String?
+    /// Shown in place of the symbol once the UPS is known.
+    var illustration: UPSIllustrationKind?
     let isSelected: Bool
     var isEnabled = true
     let action: () -> Void
@@ -113,7 +127,9 @@ struct AssistantChoiceRow<Accessory: View>: View {
                     .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
                     .accessibilityHidden(true)
 
-                if let symbol {
+                if let illustration {
+                    AssistantIllustrationTile(kind: illustration)
+                } else if let symbol {
                     AssistantSymbolTile(symbol: symbol, tint: isSelected ? .accentColor : .secondary)
                 }
 
@@ -144,6 +160,7 @@ extension AssistantChoiceRow where Accessory == EmptyView {
         title: String,
         detail: String? = nil,
         symbol: String? = nil,
+        illustration: UPSIllustrationKind? = nil,
         isSelected: Bool,
         isEnabled: Bool = true,
         action: @escaping () -> Void
@@ -152,6 +169,7 @@ extension AssistantChoiceRow where Accessory == EmptyView {
             title: title,
             detail: detail,
             symbol: symbol,
+            illustration: illustration,
             isSelected: isSelected,
             isEnabled: isEnabled,
             action: action,

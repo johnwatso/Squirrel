@@ -2,13 +2,17 @@ import AppKit
 import SquirrelCore
 import SwiftUI
 
-/// Squirrel's main window: one UPS, in focus, with the sidebar out of the way
-/// until there is a reason for it.
+/// Dashboard selection is local to this window. Mac protection is configured
+/// separately and never changes when a different dashboard is selected.
 struct UPSManagementView: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var monitor: UPSMonitor
 
+    @State private var showingSchedule = false
+    @State private var showingUPSSelector = false
+    @State private var dashboardWidth: CGFloat = 682
+    @State private var showingDevices = false
     @State private var selectedDeviceID: UPSDevice.ID?
     @State private var deviceToRemove: UPSDevice?
     @State private var deviceToRename: UPSDevice?
@@ -19,8 +23,56 @@ struct UPSManagementView: View {
             if settings.devices.isEmpty {
                 noUPSState
             } else {
-                splitView
+                dashboard
             }
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { dashboardWidth = geometry.size.width }
+                    .onChange(of: geometry.size.width) { dashboardWidth = $0 }
+            }
+        }
+        .accessibilityHidden(showingUPSSelector)
+        .overlay {
+            if showingUPSSelector {
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture { showingUPSSelector = false }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if showingUPSSelector {
+                upsSelector
+                    .background {
+                        Button("Dismiss UPS selector") { showingUPSSelector = false }
+                            .keyboardShortcut(.cancelAction)
+                            .opacity(0)
+                            .frame(width: 0, height: 0)
+                            .accessibilityHidden(true)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.1)) }
+                    .overlay(alignment: .topLeading) {
+                        Path { path in
+                            path.move(to: CGPoint(x: 0, y: 8))
+                            path.addLine(to: CGPoint(x: 8, y: 0))
+                            path.addLine(to: CGPoint(x: 16, y: 8))
+                        }
+                        .fill(.regularMaterial)
+                        .frame(width: 16, height: 8)
+                        .offset(x: 48, y: -7)
+                    }
+                    .shadow(color: .black.opacity(0.18), radius: 14, y: 10)
+                    .padding(.trailing, 18)
+                    .padding(.top, 1)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Connected UPS")
+            }
+        }
+        .onExitCommand { showingUPSSelector = false }
+        .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
+        .sheet(isPresented: $showingDevices) {
+            UPSDevicesSheet()
         }
         .sheet(isPresented: $appModel.isShowingPowerHistory) {
             PowerHistorySheet()
@@ -53,66 +105,135 @@ struct UPSManagementView: View {
 
     // MARK: - Layout
 
-    private var splitView: some View {
-        NavigationSplitView(columnVisibility: sidebarVisibility) {
-            sidebar
-                .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 280)
-        } detail: {
-            Group {
-                if let device = selectedDevice {
-                    UPSDetailView(device: device)
-                        .id(device.id)
-                } else {
-                    Text("Select a UPS")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+    private var dashboard: some View {
+        Group {
+            if let device = selectedDevice {
+                UPSDetailView(device: device).id(device.id)
             }
-            // Keeps the detail readable when the sidebar opens: the window
-            // widens to make room rather than squeezing the values out.
-            .navigationSplitViewColumnWidth(min: 400, ideal: 440)
         }
-        // Showing the sidebar makes room for it instead of squeezing the
-        // values out of the detail; hiding it lets the window come back in.
-        .frame(minWidth: isSidebarShown ? 640 : 420)
-        // The UPS's name heads the content; the window is Squirrel's.
+        .frame(minWidth: 460)
         .navigationTitle("Squirrel")
         .toolbar {
-            ToolbarItemGroup {
-                Button {
-                    monitor.restart()
-                    appModel.refreshPowerProfileAdvice()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .help("Read the UPS and the Mac's power settings again now")
-
-                Button {
-                    appModel.showHistory(for: selectedDevice)
-                } label: {
-                    Label("Power History", systemImage: "chart.xyaxis.line")
-                }
-                .help("Show this UPS's power history")
-
-                Menu {
-                    if let device = selectedDevice {
-                        deviceActions(for: device)
-                        Divider()
-                    }
-                    Button("Add UPS…") { appModel.beginConnectionAssistant() }
-                    Divider()
-                    Button("Settings…") { MenuBarView.openSettings() }
-                } label: {
-                    Label("Actions", systemImage: "ellipsis.circle")
-                }
-                .help("Rename, reconnect or remove this UPS")
+            if #available(macOS 26.0, *) {
+                ToolbarItem(placement: .primaryAction) { dashboardToolbar.accessibilityElement(children: .contain).accessibilityLabel("Dashboard controls") }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .primaryAction) { dashboardToolbar.accessibilityElement(children: .contain).accessibilityLabel("Dashboard controls") }
             }
         }
+    }
+
+    private var dashboardToolbar: some View {
+        HStack(spacing: 0) {
+            Button { showingUPSSelector.toggle() } label: {
+                HStack(spacing: 10) {
+                    Circle().fill(selectedDevice.map { UPSAppearance.tint(for: monitor.state(for: $0)) } ?? .secondary)
+                        .frame(width: 10, height: 10)
+                    Text(selectedDevice?.displayName ?? "UPS").lineLimit(1)
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                }
+                .font(.system(size: 14))
+                .padding(.horizontal, 12)
+                .frame(width: dashboardWidth < 540 ? 140 : 158, height: 35)
+                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .help("Choose a dashboard UPS; this does not change Mac protection")
+            Spacer().frame(width: dashboardWidth < 640 ? 8 : 54)
+            HStack(spacing: dashboardWidth < 540 ? 6 : 16) {
+                Button { showingSchedule = true } label: {
+                    Image(systemName: "clock").frame(width: 36, height: 35)
+                }
+                .help("Power Schedule")
+                .accessibilityLabel("Power Schedule")
+                Button { appModel.showHistory(for: selectedDevice) } label: {
+                    Image(systemName: "chart.xyaxis.line").frame(width: 36, height: 35)
+                }
+                .help("Power History")
+                .accessibilityLabel("Power History")
+                Menu {
+                    Button("Refresh") {
+                        monitor.restart()
+                        appModel.refreshPowerProfileAdvice()
+                        appModel.powerSchedule.refresh()
+                    }
+                    if let device = selectedDevice { deviceActions(for: device) }
+                    Divider()
+                    Button("Manage UPS…") { showingDevices = true }
+                    Button("Settings…") { MenuBarView.openSettings() }
+                } label: { Image(systemName: "ellipsis.circle").font(.system(size: 18)) }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 36, height: 35)
+                .accessibilityLabel("Actions")
+            }
+            .font(.system(size: 18))
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var upsSelector: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Connected UPS")
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 10)
+            ForEach(settings.devices) { device in
+                Button {
+                    selectedDeviceID = device.id
+                    showingUPSSelector = false
+                } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(.green)
+                            .opacity(device.id == selectedDeviceID ? 1 : 0)
+                            .frame(width: 18)
+                        Circle().fill(UPSAppearance.tint(for: monitor.state(for: device)))
+                            .frame(width: 10, height: 10).padding(.top, 4)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(device.displayName).foregroundStyle(.primary)
+                            Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Protecting this Mac" : "Mac integration off") : "Monitoring only")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+            DashboardDivider().padding(.vertical, 8)
+            Button {
+                showingUPSSelector = false
+                showingDevices = true
+            } label: { Label("Manage UPS…", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading) }
+                .buttonStyle(.plain)
+                .padding(.vertical, 5)
+            DashboardDivider().padding(.vertical, 8)
+            Button {
+                showingUPSSelector = false
+                appModel.beginConnectionAssistant()
+            } label: { Label("Add UPS…", systemImage: "plus").frame(maxWidth: .infinity, alignment: .leading) }
+                .buttonStyle(.plain)
+                .padding(.vertical, 5)
+        }
+        .font(.system(size: 14))
+        .padding(16)
+        .frame(width: 262)
     }
 
     @ViewBuilder
     private func deviceActions(for device: UPSDevice) -> some View {
         Button("Rename…") { beginRename(device) }
+        Picker("Picture", selection: Binding(
+            get: { device.illustrationOverride.flatMap(UPSIllustrationKind.init(rawValue:)) },
+            set: { appModel.setIllustration($0, for: device) }
+        )) {
+            Text("Automatic").tag(UPSIllustrationKind?.none)
+            Divider()
+            ForEach(UPSIllustrationKind.allCases, id: \.self) { kind in
+                Text(kind.title).tag(UPSIllustrationKind?.some(kind))
+            }
+        }
         Button("Change Connection…") { appModel.beginConnectionAssistant(editing: device) }
         if settings.devices.count > 1, !device.publishesToSystem {
             Button("Use to Protect This Mac") { appModel.useForMacProtection(device) }
@@ -125,47 +246,6 @@ struct UPSManagementView: View {
     private func beginRename(_ device: UPSDevice) {
         proposedName = device.displayName
         deviceToRename = device
-    }
-
-    /// Until the user chooses, one UPS gets no sidebar and several get one.
-    /// Once they show or hide it, that choice is remembered, and adding a
-    /// second UPS is not on its own a reason to override it.
-    private var isSidebarShown: Bool {
-        settings.preferences.sidebarVisible ?? (settings.devices.count > 1)
-    }
-
-    private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { isSidebarShown ? .all : .detailOnly },
-            set: { visibility in
-                let shown = visibility != .detailOnly
-                // Split views write back the value they were given while
-                // laying out; only a real change counts as the user's choice.
-                guard shown != isSidebarShown else { return }
-                settings.preferences.sidebarVisible = shown
-            }
-        )
-    }
-
-    private var sidebar: some View {
-        List(selection: $selectedDeviceID) {
-            ForEach(settings.devices) { device in
-                SidebarRow(device: device, state: monitor.state(for: device))
-                    .tag(device.id)
-                    .contextMenu { deviceActions(for: device) }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Button {
-                appModel.beginConnectionAssistant()
-            } label: {
-                Label("Add UPS", systemImage: "plus")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.borderless)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
     }
 
     private var noUPSState: some View {
@@ -204,30 +284,5 @@ struct UPSManagementView: View {
         appModel.remove(device)
         deviceToRemove = nil
         validateSelection()
-    }
-}
-
-// MARK: - Sidebar row
-
-private struct SidebarRow: View {
-    let device: UPSDevice
-    let state: UPSConnectionState
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: MenuBarPresentation.symbolName(for: state))
-                .foregroundStyle(UPSAppearance.tint(for: state))
-                .frame(width: 18)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(device.displayName)
-                    .lineLimit(1)
-                Text(UPSAppearance.shortStatus(for: state))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
     }
 }

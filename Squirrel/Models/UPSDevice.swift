@@ -15,6 +15,11 @@ struct UPSDevice: Identifiable, Codable, Equatable, Sendable {
     /// can be, because the Mac has one set of shutdown thresholds.
     var publishesToSystem: Bool
     var pollInterval: TimeInterval
+    /// The drawing the user picked when Squirrel guessed wrong, as a
+    /// `UPSIllustrationKind` raw value; nil means detect it from the reading.
+    /// Kept as text so a drawing a later version drops can never stop the
+    /// device list from loading.
+    var illustrationOverride: String? = nil
 
     init(
         id: UUID = UUID(),

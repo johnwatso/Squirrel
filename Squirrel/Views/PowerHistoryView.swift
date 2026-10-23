@@ -66,6 +66,7 @@ struct HistoryChart: View {
     let metric: HistoryMetric
     let range: HistoryRange
     var compact = false
+    var events: [PowerEvent] = []
 
     var body: some View {
         chart
@@ -140,6 +141,17 @@ struct HistoryChart: View {
                 .accessibilityLabel("No recorded readings")
             }
             outageMarks
+            ForEach(events) { event in
+                RuleMark(x: .value("Event", event.date))
+                    .foregroundStyle(event.kind == .lowBattery ? Color.red.opacity(0.65) : Color.orange.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .annotation(position: .top, spacing: 2) {
+                        Image(systemName: event.kind.symbolName)
+                            .font(.caption2)
+                            .help(event.kind.title + " · " + event.kind.provenance)
+                    }
+                    .accessibilityLabel(event.kind.title + " · " + event.kind.provenance)
+            }
             ForEach(points, id: \.date) { point in
                 LineMark(
                     x: .value("Time", point.date),
@@ -359,7 +371,7 @@ struct PowerHistorySheet: View {
                 }
                 ForEach(metrics) { metric in
                     Section {
-                        HistoryChart(samples: samples, metric: metric, range: range)
+                        HistoryChart(samples: samples, metric: metric, range: range, events: metric == .power ? events : [])
                             .frame(height: 110)
                             .padding(.vertical, 4)
                     } header: {
@@ -386,7 +398,7 @@ struct PowerHistorySheet: View {
                         }
                     }
                 } header: {
-                    Text("Events")
+                    Text("Recent Events")
                 } footer: {
                     if samples.contains(where: \.onBattery) {
                         Label("Shaded periods are when the UPS was on battery.", systemImage: "square.fill")
@@ -489,6 +501,7 @@ private struct EventRow: View {
             Label {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(event.kind.title)
+                    Text(event.kind.provenance).font(.caption2).foregroundStyle(.secondary)
                     if let detail = event.detail {
                         Text(detail)
                             .font(.caption)
@@ -507,7 +520,8 @@ private struct EventRow: View {
         switch event.kind {
         case .powerLost, .communicationLost: return .orange
         case .lowBattery: return .red
-        case .powerRestored, .communicationRestored: return .secondary
+        case .powerRestored, .communicationRestored: return .blue
+        case .scheduleChanged, .systemWake, .systemSleep, .systemShutdown: return .purple
         }
     }
 }

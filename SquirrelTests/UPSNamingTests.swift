@@ -74,4 +74,11 @@ final class NUTServerKindTests: XCTestCase {
         XCTAssertEqual(NUTServerKind.qnap.defaultCredentials?.username, "admin")
         XCTAssertNil(NUTServerKind.unifi.defaultCredentials)
     }
+
+    func testAddressDoesNotRepeatAUPSNamedAfterItsServer() {
+        XCTAssertEqual(UPSNaming.address(upsName: "ups", host: "10.0.0.4"), "ups@10.0.0.4")
+        XCTAssertEqual(UPSNaming.address(upsName: "10.11.1.46", host: "10.11.1.46"), "10.11.1.46")
+        XCTAssertEqual(UPSNaming.address(upsName: "10.11.1.46", host: "10.11.1.46", hostName: "ups2u.localdomain"), "ups2u.localdomain · 10.11.1.46")
+        XCTAssertEqual(UPSNaming.address(upsName: "UPS2U.localdomain", host: "10.11.1.46", hostName: "ups2u.localdomain"), "ups2u.localdomain · 10.11.1.46")
+    }
 }

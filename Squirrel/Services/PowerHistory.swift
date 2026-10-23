@@ -25,6 +25,10 @@ enum PowerEventKind: String, CaseIterable, Sendable {
     case lowBattery
     case communicationLost
     case communicationRestored
+    case scheduleChanged
+    case systemWake
+    case systemSleep
+    case systemShutdown
 
     var title: String {
         switch self {
@@ -33,6 +37,18 @@ enum PowerEventKind: String, CaseIterable, Sendable {
         case .lowBattery: return "Battery low"
         case .communicationLost: return "UPS connection lost"
         case .communicationRestored: return "UPS connection restored"
+        case .scheduleChanged: return "Power schedule updated"
+        case .systemWake: return "Mac woke"
+        case .systemSleep: return "Mac preparing to sleep"
+        case .systemShutdown: return "Mac preparing to shut down"
+        }
+    }
+
+    var provenance: String {
+        switch self {
+        case .systemWake, .systemSleep, .systemShutdown: return "Reported by macOS · Cause unverified"
+        case .scheduleChanged: return "Configuration saved · Execution unverified"
+        default: return "Observed by Squirrel"
         }
     }
 
@@ -43,6 +59,10 @@ enum PowerEventKind: String, CaseIterable, Sendable {
         case .lowBattery: return "battery.25"
         case .communicationLost: return "wifi.exclamationmark"
         case .communicationRestored: return "wifi"
+        case .scheduleChanged: return "calendar.badge.clock"
+        case .systemWake: return "sun.max.fill"
+        case .systemSleep: return "moon.fill"
+        case .systemShutdown: return "power"
         }
     }
 }

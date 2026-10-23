@@ -213,13 +213,17 @@ struct ConnectionAssistantView: View {
             findMode = .automatic
         } label: {
             HStack(spacing: 10) {
-                AssistantSymbolTile(
-                    symbol: "server.rack",
-                    tint: selectedServerID == server.id ? .accentColor : .secondary,
-                    size: 28
-                )
+                if let kind = illustration(for: server) {
+                    AssistantIllustrationTile(kind: kind, height: 28)
+                } else {
+                    AssistantSymbolTile(
+                        symbol: "server.rack",
+                        tint: selectedServerID == server.id ? .accentColor : .secondary,
+                        size: 28
+                    )
+                }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(server.displayName).font(.body.weight(.medium)).lineLimit(1)
+                    Text(serverTitle(server)).font(.body.weight(.medium)).lineLimit(1)
                     Text(serverDetail(server)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -227,11 +231,15 @@ struct ConnectionAssistantView: View {
                     AssistantStatusBadge(text: "Not permitted", tint: .orange)
                 } else if server.requiresAuthentication {
                     AssistantStatusBadge(text: "Sign-in needed", tint: .orange)
-                } else if !server.upsNames.isEmpty {
+                } else if let identity = discoveredIdentity(of: server), identity.value("ups.status") != nil {
                     AssistantStatusBadge(
-                        text: "\(server.upsNames.count) UPS",
-                        tint: .green
+                        text: MenuBarPresentation.statusPhrase(for: identity.status),
+                        tint: tint(for: identity)
                     )
+                } else if server.upsNames.count > 1 {
+                    AssistantStatusBadge(text: "\(server.upsNames.count) UPSes", tint: .green)
+                } else if !server.upsNames.isEmpty {
+                    AssistantStatusBadge(text: "Available", tint: .green)
                 }
                 Image(systemName: selectedServerID == server.id ? "checkmark.circle.fill" : "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -246,14 +254,47 @@ struct ConnectionAssistantView: View {
         .accessibilityHint("NUT server at \(server.address)")
     }
 
+    /// What the one UPS a server serves said about itself while it was being
+    /// found. A server with several, or one that wouldn't say, gets nil so
+    /// its row describes the server rather than one UPS picked at random.
+    private func discoveredIdentity(of server: DiscoveredNUTServer) -> UPSReading? {
+        guard server.upsNames.count == 1, let name = server.upsNames.first else { return nil }
+        var variables: [String: String] = [:]
+        variables["device.mfr"] = server.upsManufacturers[name]
+        variables["ups.model"] = server.upsModels[name]
+        variables["ups.status"] = server.upsStatuses[name]
+        return variables.isEmpty ? nil : UPSReading(upsName: name, variables: variables)
+    }
+
+    /// Only once the maker is known: a guess from nothing would just be the
+    /// generic tower, which says less than the server symbol.
+    private func illustration(for server: DiscoveredNUTServer) -> UPSIllustrationKind? {
+        guard let identity = discoveredIdentity(of: server), UPSNaming.manufacturer(in: identity) != nil else { return nil }
+        return UPSIllustrationKind(reading: identity)
+    }
+
+    /// The UPS's product name, "UniFi UPS 2U", when the server serves just
+    /// one and said what it is; otherwise the server's own name.
+    private func serverTitle(_ server: DiscoveredNUTServer) -> String {
+        discoveredIdentity(of: server).flatMap(UPSNaming.suggestedName(for:)) ?? server.displayName
+    }
+
     /// The address, plus what kind of server it is when that is recognisable.
+    /// When the title is the UPS's product name, the host name moves here so
+    /// it is still visible.
     private func serverDetail(_ server: DiscoveredNUTServer) -> String {
         let kind = NUTServerKind.detect(
             hostName: server.hostName,
             upsNames: server.upsNames,
-            descriptions: Array(server.upsDescriptions.values)
+            descriptions: Array(server.upsDescriptions.values),
+            manufacturers: server.upsManufacturers.values.compactMap(UPSNaming.normalisedManufacturer)
         )
-        return [kind?.title, server.address].compactMap { $0 }.joined(separator: " · ")
+        let titledByProduct = serverTitle(server) != server.displayName
+        // "UniFi UPS" only repeats a title like "UniFi UPS 2U".
+        let kindTitle = titledByProduct && kind == .unifi ? nil : kind?.title
+        return [kindTitle, titledByProduct ? server.hostName : nil, server.address]
+            .compactMap { $0 }
+            .joined(separator: " · ")
     }
 
     // MARK: - 3. Manual connection
@@ -349,8 +390,9 @@ struct ConnectionAssistantView: View {
                 ForEach(assistant.candidates) { candidate in
                     AssistantChoiceRow(
                         title: candidate.title,
-                        detail: "\(candidate.name)@\(assistant.host)",
+                        detail: UPSNaming.address(upsName: candidate.name, host: assistant.host, hostName: assistant.serverHostName),
                         symbol: "bolt.badge.clock",
+                        illustration: candidate.reading.map { UPSIllustrationKind(reading: $0) },
                         isSelected: assistant.selectedUPSName == candidate.name,
                         action: { assistant.selectedUPSName = candidate.name },
                         accessory: {
@@ -573,11 +615,15 @@ struct ConnectionAssistantView: View {
         let reading = assistant.summaryReading
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                AssistantSymbolTile(symbol: "bolt.badge.clock", tint: .secondary, size: 30)
+                if let kind = assistant.connectedDevice.map({ $0.illustration(for: reading) }) ?? reading.map({ UPSIllustrationKind(reading: $0) }) {
+                    AssistantIllustrationTile(kind: kind, height: 30)
+                } else {
+                    AssistantSymbolTile(symbol: "bolt.badge.clock", tint: .secondary, size: 30)
+                }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(assistant.connectedTitle).font(.body.weight(.medium)).lineLimit(1)
                     if let device = assistant.connectedDevice {
-                        Text("\(device.upsName)@\(device.host)")
+                        Text(UPSNaming.address(upsName: device.upsName, host: device.host, hostName: assistant.serverHostName))
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }

@@ -52,7 +52,8 @@ struct SquirrelApp: App {
                 .onAppear { appModel.setWindow(.manage, visible: true) }
                 .onDisappear { appModel.setWindow(.manage, visible: false) }
         }
-        .defaultSize(width: 500, height: 620)
+        .defaultSize(width: 682, height: 903)
+        .windowToolbarStyle(.unified)
         .commands { SquirrelCommands(appModel: appModel) }
 
         SwiftUI.Settings {
@@ -137,8 +138,7 @@ private struct SquirrelCommands: Commands {
             Button("Add UPS…") { appModel.beginConnectionAssistant() }
                 .keyboardShortcut("n")
         }
-        SidebarCommands()
-        CommandGroup(after: .sidebar) {
+        CommandGroup(after: .windowArrangement) {
             Button("Show Power History") { appModel.showHistory() }
                 .keyboardShortcut("y")
         }

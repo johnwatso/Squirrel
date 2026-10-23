@@ -23,3 +23,32 @@ loopback NUT fixture, with publishing and notifications disabled. Their settings
 and history were isolated from the live app and cleaned up afterward. Production
 code contains no synthetic UPS readings or events. Light mode was forced only
 for the temporary copy; the system appearance was not changed.
+
+## Power scheduling and dashboard refinement — 23 October 2026
+
+- Debug tests: 111 passed, zero failures. Added coverage for system schedule
+  parsing, exact custom weekday masks, invalid recurring combinations, disabled
+  rule persistence, stale edits after app activation, system readback, exclusive
+  Mac protection selection, and honest history provenance.
+- Universal Release build: passed for arm64 and x86_64, without new compiler
+  warnings. Debug test linking retains the SDK's XCTest macOS 14 versus app
+  deployment-target 13 warnings; the deployment target was not raised.
+- Isolated app copy: inspected the native schedule sheet, add-rule menu, time
+  picker, weekday toggles, Cancel and inactive Apply before edits. No schedule
+  was applied and no authentication prompt was invoked.
+- Read-only system inspection: the Apple silicon macOS 27.0.1 host returned no
+  scheduled events and reported autorestart support. New history event types do
+  not infer successful power operations from missing telemetry.
+- Visual checks: light and dark dashboard, native schedule sheet, General and
+  Power settings tabs, populated history sheet, and a 460 pt minimum-width
+  dashboard with scrolling and toolbar overflow. The original system Auto
+  appearance setting was restored after inspecting Dark.
+- Multi-UPS selection: a temporary loopback NUT fixture supplied separately
+  identified Rack/Office readings. Selecting Office changed its displayed
+  capacity/power/load without changing the protection designation. Native UPS
+  publishing, sleep prevention and notifications were disabled in the isolated
+  copy. The production app and its configuration were not replaced.
+- Live hardware protection and schedule execution were not exercised. The
+  fixture validates monitoring/UI behaviour, not an actual outage or reboot.
+  See Power-Scheduling.md for interfaces, preservation rules and acceptance
+  tests that still require physical hardware.

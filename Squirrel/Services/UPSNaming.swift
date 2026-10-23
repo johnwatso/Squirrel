@@ -149,6 +149,15 @@ enum UPSNaming {
         return nil
     }
 
+    /// Where a UPS lives, for a detail line: NUT's own "ups@host", except
+    /// when the server names its UPS after itself (a UniFi UPS serves one
+    /// called by its own address), where that would only say the address twice.
+    static func address(upsName: String, host: String, hostName: String? = nil) -> String {
+        let name = upsName.lowercased()
+        guard name == host.lowercased() || name == hostName?.lowercased() else { return "\(upsName)@\(host)" }
+        return [hostName, host].compactMap { $0 }.joined(separator: " · ")
+    }
+
     // MARK: - Known products
 
     /// Products whose reported model is a code that only a table can map to

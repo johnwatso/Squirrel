@@ -20,6 +20,13 @@ final class SettingsStore: ObservableObject {
         self.credentialStore = credentialStore
         self.devices = Self.load([UPSDevice].self, forKey: Keys.devices, from: defaults) ?? []
         self.preferences = Self.load(AppPreferences.self, forKey: Keys.preferences, from: defaults) ?? AppPreferences()
+        if let first = self.devices.first(where: { $0.publishesToSystem })?.id {
+            self.devices = self.devices.map { device in
+                var updated = device
+                updated.publishesToSystem = device.id == first
+                return updated
+            }
+        }
     }
 
     /// The one UPS presented to macOS. The Mac has a single set of shutdown
@@ -31,10 +38,25 @@ final class SettingsStore: ObservableObject {
     func device(id: UUID) -> UPSDevice? { devices.first { $0.id == id } }
 
     func upsert(_ device: UPSDevice) {
-        if let index = devices.firstIndex(where: { $0.id == device.id }) {
-            devices[index] = device
+        var updated = devices.map { existing in
+            var entry = existing
+            if device.publishesToSystem, entry.id != device.id { entry.publishesToSystem = false }
+            return entry
+        }
+        if let index = updated.firstIndex(where: { $0.id == device.id }) {
+            updated[index] = device
         } else {
-            devices.append(device)
+            updated.append(device)
+        }
+        devices = updated
+    }
+
+    func setProtectionDevice(_ id: UUID) {
+        guard devices.contains(where: { $0.id == id }) else { return }
+        devices = devices.map { device in
+            var updated = device
+            updated.publishesToSystem = device.id == id
+            return updated
         }
     }
 

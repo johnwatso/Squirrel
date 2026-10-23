@@ -9,6 +9,7 @@ import SwiftUI
 /// method can actuate.
 struct DisclosureRow<Content: View, Trailing: View>: View {
     private let title: String
+    private let labelSpacing: CGFloat
     @Binding private var isExpanded: Bool
     @ViewBuilder private let content: () -> Content
     @ViewBuilder private let trailing: () -> Trailing
@@ -19,10 +20,12 @@ struct DisclosureRow<Content: View, Trailing: View>: View {
     init(
         _ title: String,
         isExpanded: Binding<Bool>,
+        labelSpacing: CGFloat = 6,
         @ViewBuilder content: @escaping () -> Content,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
+        self.labelSpacing = labelSpacing
         self._isExpanded = isExpanded
         self.content = content
         self.trailing = trailing
@@ -32,7 +35,7 @@ struct DisclosureRow<Content: View, Trailing: View>: View {
         Button {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isExpanded.toggle() }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: labelSpacing) {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)

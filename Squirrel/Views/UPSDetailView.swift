@@ -46,9 +46,8 @@ enum UPSAppearance {
 /// Everything about one UPS, in the order people ask about it: is it working,
 /// how long would it last, what is it drawing, and is the Mac protected.
 ///
-/// A native grouped form kept deliberately short, so a default-sized window
-/// shows all of it without scrolling. Only the two numbers that matter in an
-/// outage are large; the rows that appear are the ones this UPS reports.
+/// Explicit card geometry follows the dashboard reference. Expanded details
+/// and additional status messages remain scrollable without changing bindings.
 struct UPSDetailView: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var settings: SettingsStore
@@ -62,30 +61,44 @@ struct UPSDetailView: View {
     private var isLive: Bool { state.reading != nil }
 
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
+        ScrollView {
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                     UPSIdentityHeader(device: device, state: state, reading: reading)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 20)
+                        .padding(.bottom, 14)
                     if let reading {
+                        DashboardDivider()
                         UPSMeasurements(reading: reading, isLive: isLive)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 20)
+                            .padding(.bottom, 14)
+                    }
+                    NameSuggestionRow(device: device, reading: reading)
+                        .padding(.horizontal, 20)
+                    if let trouble = troubleMessage {
+                        Label(trouble.text, systemImage: trouble.symbol)
+                            .foregroundStyle(trouble.tint)
+                            .font(.system(size: 14))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(20)
                     }
                 }
-                .padding(.vertical, 4)
+                .dashboardCard()
+                .padding(.bottom, 9)
 
-                NameSuggestionRow(device: device, reading: reading)
-
-                if let trouble = troubleMessage {
-                    Label(trouble.text, systemImage: trouble.symbol)
-                        .foregroundStyle(trouble.tint)
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                MacProtectionSection(device: device)
+                DashboardPowerManagementSection(service: appModel.powerSchedule)
+                    .padding(.bottom, 16)
+                technicalSection
             }
-
-            MacProtectionSection(device: device)
-            technicalSection
+            .padding(.horizontal, 22)
+            .padding(.top, 6)
+            .padding(.bottom, 33)
         }
-        .formStyle(.grouped)
+        .background(DashboardPalette.background)
+        .font(.system(size: 14))
         .onAppear { appModel.refreshSystemPowerSource() }
     }
 
@@ -115,13 +128,16 @@ struct UPSDetailView: View {
     // MARK: - Technical information
 
     private var technicalSection: some View {
-        Section {
-            DisclosureRow("Technical Information", isExpanded: $settings.preferences.technicalInfoExpanded) {
+        VStack(alignment: .leading, spacing: 16) {
+            DisclosureRow("Technical Information", isExpanded: $settings.preferences.technicalInfoExpanded, labelSpacing: 18) {
                 technicalRows
             } trailing: {
                 FreshnessLabel(updated: monitor.lastUpdated[device.id], isLive: isLive, maxAge: settings.preferences.readingMaxAge)
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .dashboardCard()
     }
 
     @ViewBuilder
@@ -163,7 +179,7 @@ struct UPSDetailView: View {
         } else {
             Text("Squirrel has no reading from this UPS yet, so there is nothing more to show.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DashboardPalette.secondary)
         }
     }
 
@@ -193,26 +209,49 @@ struct UPSDetailView: View {
 /// The friendly name and whether the UPS is working. Make, model and the NUT
 /// identifier all live in Technical Information.
 private struct UPSIdentityHeader: View {
+    @EnvironmentObject private var appModel: AppModel
     let device: UPSDevice
     let state: UPSConnectionState
     let reading: UPSReading?
+    @State private var choosingPicture = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(device.displayName)
-                .font(.title3.weight(.semibold))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityAddTraits(.isHeader)
-            if let identity = UPSTelemetry.identity(for: reading) {
-                Text(identity)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+        HStack(spacing: 21) {
+            Button { choosingPicture = true } label: {
+                UPSDeviceIllustration(kind: device.illustration(for: reading))
+                    .frame(width: 115, height: 88)
             }
-            StatusBadge(title: statusText, tint: UPSAppearance.tint(for: state))
+            .buttonStyle(.plain)
+            .help("Change Picture")
+            .accessibilityLabel("Change Picture")
+            .popover(isPresented: $choosingPicture, arrowEdge: .bottom) {
+                UPSIllustrationPicker(
+                    detected: UPSIllustrationKind(reading: reading),
+                    selection: device.illustrationOverride.flatMap(UPSIllustrationKind.init(rawValue:))
+                ) { kind in
+                    appModel.setIllustration(kind, for: device)
+                    choosingPicture = false
+                }
+            }
+            VStack(alignment: .leading, spacing: 7) {
+                Text(device.displayName)
+                    .font(.system(size: 20, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .accessibilityAddTraits(.isHeader)
+                if let identity = UPSTelemetry.identity(for: reading) {
+                    Text(identity)
+                        .foregroundStyle(DashboardPalette.secondary)
+                        .lineLimit(2)
+                }
+                HStack(spacing: 9) {
+                    Circle().fill(UPSAppearance.tint(for: state)).frame(width: 12, height: 12)
+                    Text(statusText)
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
@@ -261,93 +300,69 @@ private struct NameSuggestionRow: View {
     }
 }
 
-/// Two measurement rows with matching equal-width columns. Measuring the available
-/// width keeps both HStacks aligned without imposing a fixed content height.
+/// The reference uses a compact battery/runtime pair, with the load ring
+/// alongside consumption below; unused width stays to the right.
 private struct UPSMeasurements: View {
     let reading: UPSReading
     let isLive: Bool
-    @State private var contentWidth: CGFloat = 0
 
-    private var leftColumnWidth: CGFloat? {
-        contentWidth > 20 ? (contentWidth - 20) * 0.5 : nil
-    }
-
-    private var charge: Int? {
-        reading.batteryCharge.flatMap { (0...100).contains($0) ? $0 : nil }
-    }
-
-    private var runtime: Int? {
-        reading.batteryRuntime.flatMap { $0 >= 0 ? $0 : nil }
-    }
+    private var charge: Int? { reading.batteryCharge.flatMap { (0...100).contains($0) ? $0 : nil } }
+    private var runtime: Int? { reading.batteryRuntime.flatMap { $0 >= 0 ? $0 : nil } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 20) {
-                metric("Battery", charge.map { "\($0)%" }) {
-                    if let charge {
-                        ProgressView(value: Double(charge), total: 100)
-                            .progressViewStyle(.linear)
-                            .controlSize(.small)
-                            .tint(batteryTint(charge: charge))
-                            .accessibilityHidden(true)
+        GeometryReader { geometry in
+            let column = min(169, (geometry.size.width - 28) / 2)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        metric("Battery", charge.map { "\($0)%" })
+                        if let charge {
+                            ProgressView(value: Double(charge), total: 100)
+                                .progressViewStyle(DashboardBatteryStyle(tint: batteryTint(charge: charge)))
+                                .frame(height: 10)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .frame(width: column, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 9) {
+                        metric("Estimated runtime", runtime.map { UPSTelemetry.duration(seconds: $0) })
+                        if runtime != nil {
+                            Text(isLive ? "At current load" : "At last recorded load")
+                                .foregroundStyle(DashboardPalette.secondary)
+                        }
                     }
                 }
-                .frame(width: leftColumnWidth, alignment: .leading)
-
-                metric("Estimated runtime", runtime.map { UPSTelemetry.duration(seconds: $0) }) {
-                    if runtime != nil {
-                        Text(isLive ? "At current load" : "At last recorded load")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Divider()
-
-            HStack(alignment: .center, spacing: 20) {
-                metric("Power consumption", UPSTelemetry.watts(reading) ?? UPSTelemetry.voltAmps(reading)) {
-                    EmptyView()
-                }
-                .frame(width: leftColumnWidth, alignment: .leading)
-
-                HStack(alignment: .center) {
+                .frame(height: 95, alignment: .top)
+                DashboardDivider()
+                HStack(alignment: .top, spacing: 0) {
+                    metric("Power consumption", UPSTelemetry.watts(reading) ?? UPSTelemetry.voltAmps(reading))
+                        .frame(width: min(256, geometry.size.width * 0.44), alignment: .leading)
+                        .padding(.top, 7)
                     Text("UPS load")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
+                        .foregroundStyle(DashboardPalette.secondary)
+                        .padding(.top, 7)
                     UPSLoadGauge(load: reading.load, isOverloaded: reading.status.contains(.overload), isLive: isLive)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 64, height: 64)
+                        .padding(.leading, 38)
+                    Rectangle().fill(Color.primary.opacity(0.055)).frame(width: 1, height: 62).padding(.leading, 21)
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 14)
             }
         }
+        .frame(height: 174)
         .foregroundStyle(isLive ? .primary : .secondary)
-        .background {
-            GeometryReader { geometry in
-                Color.clear.preference(key: MeasurementWidthKey.self, value: geometry.size.width)
-            }
-        }
-        .onPreferenceChange(MeasurementWidthKey.self) { contentWidth = $0 }
     }
 
-    private func metric<Accessory: View>(
-        _ title: String,
-        _ value: String?,
-        @ViewBuilder accessory: () -> Accessory
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private func metric(_ title: String, _ value: String?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).foregroundStyle(DashboardPalette.secondary)
             Text(value ?? "Unavailable")
-                .font(.title2.bold())
+                .font(.system(size: 24, weight: .semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            accessory()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
@@ -358,9 +373,17 @@ private struct UPSMeasurements: View {
     }
 }
 
-private struct MeasurementWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+private struct DashboardBatteryStyle: ProgressViewStyle {
+    let tint: Color
+    func makeBody(configuration: Configuration) -> some View {
+        GeometryReader { geometry in
+            Capsule().fill(Color.primary.opacity(0.06))
+                .overlay(alignment: .leading) {
+                    Capsule().fill(tint)
+                        .frame(width: geometry.size.width * (configuration.fractionCompleted ?? 0))
+                }
+        }
+    }
 }
 
 private struct UPSLoadGauge: View {
@@ -378,10 +401,10 @@ private struct UPSLoadGauge: View {
             if let percentage {
                 ProgressView(value: Double(percentage), total: 100)
                     .progressViewStyle(UPSLoadRingStyle(tint: tint))
-                    .frame(width: 44, height: 44)
+                    .frame(width: 64, height: 64)
                     .overlay {
                         Text("\(percentage)%")
-                            .font(.callout.weight(.semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -390,7 +413,7 @@ private struct UPSLoadGauge: View {
             } else {
                 Text("Unavailable")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DashboardPalette.secondary)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -412,13 +435,13 @@ private struct UPSLoadRingStyle: ProgressViewStyle {
     func makeBody(configuration: Configuration) -> some View {
         ZStack {
             Circle()
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 3)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 4)
             Circle()
                 .trim(from: 0, to: configuration.fractionCompleted ?? 0)
-                .stroke(tint, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .padding(1.5)
+        .padding(2)
     }
 }
 
@@ -457,8 +480,8 @@ private struct FreshnessLabel: View {
                     .frame(width: 6, height: 6)
                     .accessibilityHidden(true)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(.system(size: 13))
+            .foregroundStyle(DashboardPalette.secondary)
             .monospacedDigit()
             .accessibilityElement(children: .combine)
         }
@@ -477,9 +500,131 @@ private struct TechnicalHeading: View {
     var body: some View {
         Text(title.uppercased())
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(DashboardPalette.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 6)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+// MARK: - Dashboard layout primitives
+
+enum DashboardPalette {
+    static let background = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? .windowBackgroundColor
+            : NSColor(srgbRed: 0.98, green: 0.98, blue: 0.988, alpha: 1)
+    })
+    static let secondary = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? .secondaryLabelColor
+            : NSColor(srgbRed: 0.43, green: 0.45, blue: 0.51, alpha: 1)
+    })
+}
+
+
+struct DashboardDivider: View {
+    var body: some View { Rectangle().fill(Color.primary.opacity(0.055)).frame(height: 1) }
+}
+
+extension View {
+    func dashboardCard(radius: CGFloat = 12) -> some View {
+        background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
+            .clipShape(RoundedRectangle(cornerRadius: radius))
+            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Color.primary.opacity(0.055), lineWidth: 1) }
+    }
+}
+
+struct DashboardRow: View {
+    let title: String
+    let value: String
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(title)
+            Spacer(minLength: 8)
+            Text(value).foregroundStyle(DashboardPalette.secondary).multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 36)
+        .padding(.horizontal, 18)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct DashboardSectionHeading<Trailing: View>: View {
+    let title: String
+    let symbol: String
+    @ViewBuilder var trailing: Trailing
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).font(.system(size: 18)).frame(width: 20)
+            Text(title).font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            trailing
+        }
+        .frame(height: 20)
+    }
+}
+
+/// Dashboard presentation only. Schedule editing and system operations remain
+/// in the existing PowerScheduleView and PowerScheduleService.
+private struct DashboardPowerManagementSection: View {
+    @EnvironmentObject private var appModel: AppModel
+    @ObservedObject var service: PowerScheduleService
+    @State private var showingSchedule = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            DashboardSectionHeading(title: "Power Management", symbol: "clock") { EmptyView() }
+            VStack(spacing: 0) {
+                DashboardRow(title: "Restart after power failure", value: restartDescription)
+                DashboardDivider().padding(.horizontal, 18)
+                DashboardRow(title: scheduleTitle(isOn: true), value: summary(isOn: true))
+                DashboardDivider().padding(.horizontal, 18)
+                DashboardRow(title: scheduleTitle(isOn: false), value: summary(isOn: false))
+            }
+            .dashboardCard(radius: 10)
+            HStack {
+                Spacer()
+                Button("Edit Schedule…") { showingSchedule = true }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 16)
+                    .frame(height: 32)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 7))
+                    .overlay { RoundedRectangle(cornerRadius: 7).strokeBorder(Color.accentColor.opacity(0.35)) }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 17)
+        .frame(minHeight: 223, alignment: .top)
+        .dashboardCard()
+        .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: service) }
+        .onAppear { service.refresh() }
+    }
+
+    private func scheduleTitle(isOn: Bool) -> String {
+        guard let rule = service.schedules.first(where: { $0.action.isOn == isOn }) else {
+            return isOn ? "Scheduled startup" : "Scheduled shutdown"
+        }
+        switch rule.action {
+        case .wake: return "Scheduled wake"
+        case .wakeorpoweron: return "Scheduled startup/wake"
+        case .poweron: return "Scheduled startup"
+        case .sleep: return "Scheduled sleep"
+        case .restart: return "Scheduled restart"
+        case .shutdown: return "Scheduled shutdown"
+        }
+    }
+
+    private func summary(isOn: Bool) -> String {
+        guard service.readError == nil else { return "Unavailable" }
+        return service.schedules.first(where: { $0.action.isOn == isOn })?.summary ?? "Not scheduled"
+    }
+
+    private var restartDescription: String {
+        let advice = appModel.powerProfileAdvice
+        guard advice.autoRestartSupported == true, let enabled = advice.autoRestartEnabled else { return "Unavailable" }
+        return enabled ? "On" : "Off"
     }
 }

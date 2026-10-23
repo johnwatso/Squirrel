@@ -94,6 +94,7 @@ struct MacProtectionSection: View {
     @EnvironmentObject private var monitor: UPSMonitor
 
     let device: UPSDevice
+    @State private var showingProtectionDetails = false
 
     private var advice: PowerProfileAdvisor.Advice { appModel.powerProfileAdvice }
 
@@ -108,83 +109,76 @@ struct MacProtectionSection: View {
     }
 
     var body: some View {
-        Section {
+        VStack(spacing: 13) {
+            DashboardSectionHeading(title: "Mac Protection", symbol: "shield") {
+                Button { showingProtectionDetails = true } label: {
+                    HStack(spacing: 10) {
+                        Circle().fill(status.tint).frame(width: 9, height: 9)
+                        Text(status.title).foregroundStyle(DashboardPalette.secondary)
+                    }
+                    .font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showingProtectionDetails) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if appModel.protects(device), settings.preferences.preventSleepDuringOutage {
+                            Text("Squirrel prevents idle sleep during confirmed outages.")
+                                .font(.callout).foregroundStyle(DashboardPalette.secondary)
+                        }
+                        if showsSettingsButton {
+                            Button("UPS Settings…") { MenuBarView.openEnergySettings() }
+                        }
+                    }
+                    .padding(16)
+                }
+                .help("\(status.title). Open UPS Settings or inspect sleep protection.")
+                .accessibilityLabel("Mac Protection: \(status.title). UPS Settings")
+            }
             if appModel.protects(device) {
-                protectionRows
+                VStack(spacing: 0) {
+                    DashboardRow(title: "Sleep on UPS power", value: sleepDescription)
+                        .help(settings.preferences.preventSleepDuringOutage ? "Squirrel prevents idle sleep during confirmed outages." : "macOS controls sleep while on UPS power.")
+                    if advice.didReadThresholds {
+                        if let level = advice.haltLevelPercent {
+                            protectionRow("Shut down at", "\(level)% battery")
+                        }
+                        if let minutes = advice.haltRemainMinutes {
+                            protectionRow("Shut down with", "\(minutes) min remaining")
+                        }
+                        if let minutes = advice.haltAfterMinutes {
+                            protectionRow("Shut down after", "\(minutes) min on UPS")
+                        }
+                        if !advice.hasShutdownThreshold { protectionRow("Automatic shutdown", "Not set") }
+                    } else {
+                        protectionRow("Automatic shutdown", "Unavailable")
+                    }
+                }
+                .dashboardCard(radius: 10)
             }
             if let explanation = status.explanation {
                 Text(explanation)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DashboardPalette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             if !appModel.protects(device), settings.preferences.publishPowerSource, settings.devices.count > 1 {
                 Button("Use This UPS to Protect the Mac") { appModel.useForMacProtection(device) }
             }
-        } header: {
-            HStack(spacing: 8) {
-                Text("Mac Protection")
-                Spacer()
-                StatusBadge(title: status.title, tint: status.tint)
-                    .font(.callout.weight(.regular))
-                    .textCase(nil)
-                    .accessibilityLabel("Mac Protection")
-                    .accessibilityValue(status.title)
-            }
-        } footer: {
-            HStack(alignment: .top) {
-                if appModel.protects(device), settings.preferences.preventSleepDuringOutage {
-                    Text("Squirrel prevents idle sleep during confirmed outages.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                if showsSettingsButton {
-                    Button("UPS Settings…") { MenuBarView.openEnergySettings() }
-                        .buttonStyle(.link)
-                        .help("Open UPS Options in System Settings")
-                }
-            }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
+        .dashboardCard()
     }
 
-    /// macOS owns the sleep and shutdown rules; the one way to change them is
-    /// System Settings, offered wherever they apply.
     private var showsSettingsButton: Bool {
         appModel.protects(device) || !settings.preferences.publishPowerSource
     }
 
     @ViewBuilder
-    private var protectionRows: some View {
-        LabeledContent("Sleep on UPS power", value: sleepDescription)
-
-        if advice.didReadThresholds {
-            if let level = advice.haltLevelPercent {
-                LabeledContent("Shut down at", value: "\(level)% battery")
-            }
-            if let minutes = advice.haltRemainMinutes {
-                LabeledContent("Shut down with", value: "\(minutes) min remaining")
-            }
-            if let minutes = advice.haltAfterMinutes {
-                LabeledContent("Shut down after", value: "\(minutes) min on UPS")
-            }
-            if !advice.hasShutdownThreshold {
-                LabeledContent("Automatic shutdown", value: "Not set")
-            }
-        } else {
-            LabeledContent("Automatic shutdown", value: "Unavailable")
-        }
-
-        if advice.autoRestartSupported != false {
-            LabeledContent("Restart after power failure", value: restartDescription)
-        }
-    }
-
-    private var restartDescription: String {
-        guard advice.autoRestartSupported == true, let enabled = advice.autoRestartEnabled else {
-            return "Unavailable"
-        }
-        return enabled ? "On" : "Off"
+    private func protectionRow(_ title: String, _ value: String) -> some View {
+        DashboardDivider().padding(.horizontal, 18)
+        DashboardRow(title: title, value: value)
     }
 
     private var sleepDescription: String {
