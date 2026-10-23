@@ -112,4 +112,139 @@ final class PowerScheduleTests: XCTestCase {
         XCTAssertTrue(PowerEventKind.scheduleChanged.provenance.contains("unverified"))
         XCTAssertTrue(PowerEventKind.systemWake.provenance.contains("Cause unverified"))
     }
+
+    func testEditorPreservesOtherSlotAndRejectsConflictingActions() {
+        let wake = RepeatingPowerSchedule(action: .wake, minutes: 420, days: 31)
+        let sleep = RepeatingPowerSchedule(action: .sleep, minutes: 1380, days: 127)
+        let add = ScheduleEditorSession(rule: nil, schedules: [wake], baseline: "snapshot")
+        XCTAssertEqual(add.initialRule.action, .sleep)
+        XCTAssertFalse(add.allows(.poweron))
+        XCTAssertFalse(add.allows(.wakeorpoweron))
+        XCTAssertTrue(add.allows(.shutdown))
+        let edit = ScheduleEditorSession(rule: sleep, schedules: [wake, sleep], baseline: "snapshot")
+        let restart = RepeatingPowerSchedule(action: .restart, minutes: 60, days: 96)
+        XCTAssertEqual(edit.replacing(with: restart), [wake, restart])
+        XCTAssertFalse(edit.allows(.wake))
+        XCTAssertTrue(edit.allows(.restart))
+        XCTAssertEqual(ScheduleEditorSession(rule: wake, schedules: [wake], baseline: "").initialRule.action, .wake)
+    }
+
+    func testRepeatPresetsAndCustomDaysMapToMacOSWeekdayTokens() throws {
+        XCTAssertEqual(ScheduleRepeatPreset.everyDay.days, 127)
+        XCTAssertEqual(ScheduleRepeatPreset.weekdays.days, 31)
+        XCTAssertEqual(ScheduleRepeatPreset.weekends.days, 96)
+        XCTAssertNil(ScheduleRepeatPreset.custom.days)
+        XCTAssertEqual(ScheduleRepeatPreset(days: 5), .custom)
+        XCTAssertEqual(ScheduleRepeatPreset(days: 31), .weekdays)
+        let custom = RepeatingPowerSchedule(action: .wake, minutes: 0, days: 1 | 8 | 64, enabled: false)
+        XCTAssertEqual(custom.dayArguments, "MRU")
+        XCTAssertEqual(custom.recurrenceText, "Mon, Thu, Sun")
+        XCTAssertFalse(custom.timeText.isEmpty)
+        XCTAssertEqual(try RepeatingPowerSchedule.arguments(for: [.init(action: .sleep, minutes: 1439, days: 96)]),
+                       ["repeat", "sleep", "SU", "23:59:00"])
+    }
+
+    @MainActor
+    func testDisabledCreateEditAndDeleteStayLocalWithoutAuthorization() async throws {
+        let suite = "SquirrelTests.Schedule.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let output = "Repeating power events:\n  wake at 7:00AM weekdays only\n"
+        let service = PowerScheduleService(defaults: defaults, reader: { _ in output }, writer: { _, _ in
+            XCTFail("Local-only changes must not request administrator privileges")
+        })
+        service.refresh()
+        let wake = try XCTUnwrap(service.schedules.first)
+        var disabled = RepeatingPowerSchedule(action: .sleep, minutes: 1380, days: 127, enabled: false)
+        var saved = await service.apply([wake, disabled], expectedBaseline: output)
+        XCTAssertTrue(saved)
+        disabled.minutes = 1320
+        saved = await service.apply([disabled, wake], expectedBaseline: output)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(service.schedules.first { !$0.enabled }?.minutes, 1320)
+        saved = await service.apply([wake], expectedBaseline: output)
+        XCTAssertTrue(saved)
+        service.refresh()
+        XCTAssertEqual(service.schedules, [wake])
+    }
+
+    @MainActor
+    func testFailedReadbackDoesNotCommitDisabledDraftChanges() async throws {
+        let suite = "SquirrelTests.Schedule.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let output = "No scheduled events."
+        let service = PowerScheduleService(defaults: defaults, reader: { _ in output }, writer: { _, _ in })
+        service.refresh()
+        let original = RepeatingPowerSchedule(action: .sleep, minutes: 1380, days: 127, enabled: false)
+        let firstSave = await service.apply([original], expectedBaseline: output)
+        XCTAssertTrue(firstSave)
+        let wake = RepeatingPowerSchedule(action: .wake, minutes: 420, days: 31)
+        let failedSave = await service.apply([wake], expectedBaseline: output)
+        XCTAssertFalse(failedSave)
+        XCTAssertNotNil(service.lastError)
+        XCTAssertFalse(service.isApplying)
+        let reopened = PowerScheduleService(defaults: defaults, reader: { _ in output })
+        reopened.refresh()
+        XCTAssertEqual(reopened.schedules, [original])
+    }
+
+    @MainActor
+    func testCancelledAuthorizationKeepsSavedStateAndAllowsRetry() async throws {
+        let suite = "SquirrelTests.Schedule.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var output = "No scheduled events."
+        var cancel = true
+        let service = PowerScheduleService(defaults: defaults, reader: { _ in output }, writer: { _, _ in
+            if cancel { throw ScheduleError.authorizationCancelled }
+            output = "Repeating power events:\n  wake at 7:00AM weekdays only\n"
+        })
+        service.refresh()
+        let wake = RepeatingPowerSchedule(action: .wake, minutes: 420, days: 31)
+        var saved = await service.apply([wake], expectedBaseline: service.baseline)
+        XCTAssertFalse(saved)
+        XCTAssertEqual(service.schedules, [])
+        XCTAssertEqual(service.lastError, ScheduleError.authorizationCancelled.localizedDescription)
+        XCTAssertFalse(service.isApplying)
+        cancel = false
+        saved = await service.apply([wake], expectedBaseline: service.baseline)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(service.schedules, [wake])
+        XCTAssertNil(service.lastError)
+    }
+
+    @MainActor
+    func testDeletingActiveRulePreservesOtherSystemRule() async throws {
+        let suite = "SquirrelTests.Schedule.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var output = "Repeating power events:\n  wake at 7:00AM weekdays only\n  shutdown at 11:00PM every day\n"
+        let service = PowerScheduleService(defaults: defaults, reader: { _ in output }, writer: { arguments, _ in
+            XCTAssertEqual(arguments, ["repeat", "wake", "MTWRF", "07:00:00"])
+            output = "Repeating power events:\n  wake at 7:00AM weekdays only\n"
+        })
+        service.refresh()
+        let wake = try XCTUnwrap(service.schedules.first { $0.action.isOn })
+        let saved = await service.apply([wake], expectedBaseline: service.baseline)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(service.schedules, [wake])
+    }
+
+    @MainActor
+    func testExternalActiveRuleTakesPrecedenceOverDisabledDraft() async throws {
+        let suite = "SquirrelTests.Schedule.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var output = "No scheduled events."
+        let service = PowerScheduleService(defaults: defaults, reader: { _ in output })
+        service.refresh()
+        let disabled = RepeatingPowerSchedule(action: .sleep, minutes: 1380, days: 127, enabled: false)
+        let saved = await service.apply([disabled], expectedBaseline: output)
+        XCTAssertTrue(saved)
+        output = "Repeating power events:\n  restart at 1:00AM weekends only\n"
+        service.refresh()
+        XCTAssertEqual(service.schedules, [.init(action: .restart, minutes: 60, days: 96)])
+    }
+
 }

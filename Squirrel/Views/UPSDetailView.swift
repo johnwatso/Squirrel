@@ -300,8 +300,8 @@ private struct NameSuggestionRow: View {
     }
 }
 
-/// The reference uses a compact battery/runtime pair, with the load ring
-/// alongside consumption below; unused width stays to the right.
+/// Three balanced columns keep the primary measurements together, with power
+/// consumption inside a ring representing the UPS load percentage.
 private struct UPSMeasurements: View {
     let reading: UPSReading
     let isLive: Bool
@@ -310,53 +310,63 @@ private struct UPSMeasurements: View {
     private var runtime: Int? { reading.batteryRuntime.flatMap { $0 >= 0 ? $0 : nil } }
 
     var body: some View {
-        GeometryReader { geometry in
-            let column = min(169, (geometry.size.width - 28) / 2)
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 28) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        metric("Battery", charge.map { "\($0)%" })
-                        if let charge {
-                            ProgressView(value: Double(charge), total: 100)
-                                .progressViewStyle(DashboardBatteryStyle(tint: batteryTint(charge: charge)))
-                                .frame(height: 10)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                    .frame(width: column, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 9) {
-                        metric("Estimated runtime", runtime.map { UPSTelemetry.duration(seconds: $0) })
-                        if runtime != nil {
-                            Text(isLive ? "At current load" : "At last recorded load")
-                                .foregroundStyle(DashboardPalette.secondary)
-                        }
-                    }
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                metric("Battery", charge.map { "\($0)%" })
+                if let charge {
+                    ProgressView(value: Double(charge), total: 100)
+                        .progressViewStyle(DashboardBatteryStyle(tint: batteryTint(charge: charge)))
+                        .frame(height: 10)
+                        .accessibilityHidden(true)
                 }
-                .frame(height: 95, alignment: .top)
-                DashboardDivider()
-                HStack(alignment: .top, spacing: 0) {
-                    metric("Power consumption", UPSTelemetry.watts(reading) ?? UPSTelemetry.voltAmps(reading))
-                        .frame(width: min(256, geometry.size.width * 0.44), alignment: .leading)
-                        .padding(.top, 7)
-                    Text("UPS load")
-                        .foregroundStyle(DashboardPalette.secondary)
-                        .padding(.top, 7)
-                    UPSLoadGauge(load: reading.load, isOverloaded: reading.status.contains(.overload), isLive: isLive)
-                        .frame(width: 64, height: 64)
-                        .padding(.leading, 38)
-                    Rectangle().fill(Color.primary.opacity(0.055)).frame(width: 1, height: 62).padding(.leading, 21)
-                    Spacer(minLength: 0)
-                }
-                .padding(.top, 14)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            columnDivider
+
+            VStack(alignment: .leading, spacing: 9) {
+                metric("Estimated runtime", runtime.map { UPSTelemetry.duration(seconds: $0) })
+                if runtime != nil {
+                    Text(isLive ? "At current load" : "At last recorded load")
+                        .foregroundStyle(DashboardPalette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            columnDivider
+
+            VStack(spacing: 8) {
+                metricLabel("UPS load")
+                UPSLoadGauge(
+                    load: reading.load,
+                    power: UPSTelemetry.watts(reading) ?? UPSTelemetry.voltAmps(reading),
+                    isOverloaded: reading.status.contains(.overload),
+                    isLive: isLive
+                )
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(height: 174)
         .foregroundStyle(isLive ? .primary : .secondary)
+    }
+
+    private var columnDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.055))
+            .frame(width: 1, height: 120)
+            .accessibilityHidden(true)
+    }
+
+    private func metricLabel(_ title: String) -> some View {
+        Text(title)
+            .foregroundStyle(DashboardPalette.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
 
     private func metric(_ title: String, _ value: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).foregroundStyle(DashboardPalette.secondary)
+            metricLabel(title)
             Text(value ?? "Unavailable")
                 .font(.system(size: 24, weight: .semibold))
                 .monospacedDigit()
@@ -388,37 +398,39 @@ private struct DashboardBatteryStyle: ProgressViewStyle {
 
 private struct UPSLoadGauge: View {
     let load: Int?
+    let power: String?
     let isOverloaded: Bool
     let isLive: Bool
 
-    /// The same validated NUT reading drives the arc and its sole value label.
+    /// The validated NUT load reading drives the arc and its accessibility value.
     private var percentage: Int? {
         load.flatMap { (0...100).contains($0) ? $0 : nil }
     }
 
     var body: some View {
-        Group {
-            if let percentage {
-                ProgressView(value: Double(percentage), total: 100)
-                    .progressViewStyle(UPSLoadRingStyle(tint: tint))
-                    .frame(width: 64, height: 64)
-                    .overlay {
-                        Text("\(percentage)%")
-                            .font(.system(size: 16, weight: .semibold))
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .padding(.horizontal, 5)
+        ProgressView(value: Double(percentage ?? 0), total: 100)
+            .progressViewStyle(UPSLoadRingStyle(tint: tint))
+            .frame(width: 96, height: 96)
+            .overlay {
+                Group {
+                    if let power {
+                        Text(power)
+                            .font(.system(size: 24, weight: .semibold))
+                    } else {
+                        Text("Unavailable")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DashboardPalette.secondary)
                     }
-            } else {
-                Text("Unavailable")
-                    .font(.callout)
-                    .foregroundStyle(DashboardPalette.secondary)
+                }
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 10)
             }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("UPS load")
-        .accessibilityValue(percentage.map { "\($0) percent" } ?? "Unavailable")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("UPS load")
+            .accessibilityValue([percentage.map { "\($0) percent" } ?? "Unavailable", power].compactMap { $0 }.joined(separator: ", "))
     }
 
     private var tint: Color {

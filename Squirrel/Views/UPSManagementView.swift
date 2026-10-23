@@ -160,7 +160,7 @@ struct UPSManagementView: View {
                     if let device = selectedDevice { deviceActions(for: device) }
                     Divider()
                     Button("Manage UPS…") { showingDevices = true }
-                    Button("Settings…") { MenuBarView.openSettings() }
+                    Button("Settings…") { MenuBarMenu.openSettings() }
                 } label: { Image(systemName: "ellipsis.circle").font(.system(size: 18)) }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)

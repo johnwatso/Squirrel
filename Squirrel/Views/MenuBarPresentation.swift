@@ -18,28 +18,85 @@ enum MenuBarPresentation {
         }
     }
 
-    /// "120 W · 12% load": what the UPS is supplying, where it reports it.
-    static func drawLine(for state: UPSConnectionState) -> String? {
-        guard let reading = state.reading else { return nil }
-        var parts: [String] = []
-        if let watts = UPSTelemetry.watts(reading) { parts.append(watts) }
-        if let load = reading.load { parts.append("\(load)% load") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    /// How strongly a menu row's symbol should speak. Colour is kept for
+    /// status, so ordinary actions stay monochrome.
+    enum Tone: Equatable {
+        case positive
+        case caution
+        case critical
+        case neutral
     }
 
-    /// Explicit, short measurements for the native menu. Unsupported values
-    /// are omitted and disconnected devices never inherit another UPS's data.
-    static func measurementLines(for state: UPSConnectionState) -> [String] {
-        guard let reading = state.reading else { return [] }
-        var lines: [String] = []
-        if let charge = reading.batteryCharge { lines.append("Battery: \(charge)%") }
-        if let runtime = reading.batteryRuntime {
-            lines.append("Runtime: \(UPSTelemetry.duration(seconds: runtime))")
+    /// The coloured symbol and words at the top of the menu.
+    struct StatusLine: Equatable {
+        let title: String
+        let symbol: String
+        let tone: Tone
+    }
+
+    /// "On mains power" with a green bolt, "Low battery" with a red warning,
+    /// and so on. Severity comes from the UPS's own flags, so the menu never
+    /// invents its own idea of a low battery.
+    static func powerStatus(for state: UPSConnectionState) -> StatusLine {
+        switch state {
+        case .online(let reading):
+            let tone: Tone = switch UPSStatusPresentation.severity(for: reading.status) {
+            case .normal: .positive
+            case .caution: .caution
+            case .critical: .critical
+            }
+            let symbol = tone == .critical ? "exclamationmark.triangle.fill" : symbolName(for: state)
+            return StatusLine(title: UPSStatusPresentation.headline(for: reading.status), symbol: symbol, tone: tone)
+        case .failed:
+            return StatusLine(title: "UPS disconnected", symbol: "bolt.slash.fill", tone: .neutral)
+        case .connecting:
+            return StatusLine(title: "Connecting…", symbol: "questionmark.circle", tone: .neutral)
+        case .idle:
+            return StatusLine(title: "Not monitoring", symbol: "pause.circle", tone: .neutral)
         }
-        if let power = UPSTelemetry.watts(reading) { lines.append("Power: \(power)") }
-        else if let power = UPSTelemetry.voltAmps(reading) { lines.append("Apparent power: \(power)") }
-        if let load = reading.load { lines.append("Load: \(load)%") }
-        return lines
+    }
+
+    /// One label and value in the menu's telemetry block.
+    struct TelemetryRow: Equatable {
+        let label: String
+        let value: String
+    }
+
+    /// Battery, runtime and load, with the load's percentage and power on
+    /// one row. Unsupported values are omitted and disconnected devices never
+    /// inherit another UPS's data.
+    static func telemetryRows(for state: UPSConnectionState) -> [TelemetryRow] {
+        guard let reading = state.reading else { return [] }
+        var rows: [TelemetryRow] = []
+        if let charge = reading.batteryCharge {
+            rows.append(TelemetryRow(label: "Battery", value: "\(charge)%"))
+        }
+        if let runtime = reading.batteryRuntime {
+            rows.append(TelemetryRow(label: "Runtime", value: UPSTelemetry.duration(seconds: runtime)))
+        }
+        let load = [
+            reading.load.map { "\($0)%" },
+            UPSTelemetry.watts(reading) ?? UPSTelemetry.voltAmps(reading),
+        ].compactMap { $0 }
+        if !load.isEmpty {
+            rows.append(TelemetryRow(label: "UPS Load", value: load.joined(separator: " · ")))
+        }
+        return rows
+    }
+
+    /// "Mac protected" only when Mac Protection says so: a connected UPS is
+    /// not enough on its own.
+    static func protectionLine(for status: MacProtectionStatus) -> StatusLine {
+        switch status.level {
+        case .active:
+            return StatusLine(title: "Mac protected", symbol: "checkmark.shield.fill", tone: .positive)
+        case .attention:
+            return StatusLine(title: "Mac protection: \(status.title)", symbol: "exclamationmark.shield.fill", tone: .caution)
+        case .checking:
+            return StatusLine(title: "Checking Mac protection…", symbol: "shield", tone: .neutral)
+        case .inactive:
+            return StatusLine(title: "Mac protection: \(status.title)", symbol: "shield.slash", tone: .neutral)
+        }
     }
 
     static func statusPhrase(for status: UPSStatusFlags) -> String {
@@ -90,13 +147,79 @@ enum MenuBarPresentation {
         }
     }
 
-    /// NUT instant commands worth putting in a menu, with readable titles.
-    static let offeredCommands: [(command: String, title: String)] = [
-        ("test.battery.start.quick", "Run Quick Self-Test"),
-        ("test.battery.start.deep", "Run Deep Self-Test"),
-        ("test.battery.stop", "Stop Self-Test"),
-        ("beeper.mute", "Mute Beeper"),
-        ("beeper.disable", "Disable Beeper"),
-        ("beeper.enable", "Enable Beeper"),
-    ]
+    /// A NUT instant command with the title the menu gives it.
+    struct OfferedCommand: Equatable {
+        let command: String
+        let title: String
+    }
+
+    /// NUT lets anyone the server admits read a UPS, but only a signed-in
+    /// user can send it commands, so commands are only offered for a UPS set
+    /// up with a username.
+    static func canRunCommands(on device: UPSDevice) -> Bool {
+        device.username?.isEmpty == false
+    }
+
+    /// "Silence Alarm", for the top of the menu, while the UPS is sounding one:
+    /// it is on battery or reporting a fault, and its beeper isn't already
+    /// off. Mutes this alarm only; the beeper sounds again for the next one.
+    static func alarmCommand(supported: [String], reading: UPSReading?, signedIn: Bool) -> OfferedCommand? {
+        guard signedIn, supported.contains("beeper.mute"), let reading else { return nil }
+        let alarming: UPSStatusFlags = [.onBattery, .lowBattery, .alarm, .overload, .replaceBattery, .forcedShutdown]
+        guard !reading.status.isDisjoint(with: alarming) else { return nil }
+        let beeper = reading.value("ups.beeper.status")?.lowercased()
+        guard beeper != "disabled", beeper != "muted" else { return nil }
+        return OfferedCommand(command: "beeper.mute", title: "Silence Alarm")
+    }
+
+    /// The Controls submenu: commands the UPS supports, with a sign-in, that
+    /// make sense right now. Stopping a test only while one could be running,
+    /// turning the beeper off only while it's on, and so on. Nothing that cuts
+    /// power to the load is ever offered.
+    static func offeredCommands(supported: [String], reading: UPSReading?, signedIn: Bool) -> [OfferedCommand] {
+        guard signedIn else { return [] }
+        let status = reading?.status ?? []
+        let calibrating = status.contains(.calibrating)
+        let testResult = reading?.value("ups.test.result")?.lowercased()
+        // Without a reported result a test may be running, so keep the stop.
+        let testMayBeRunning = calibrating || testResult == nil || testResult?.contains("progress") == true
+        let beeper = reading?.value("ups.beeper.status")?.lowercased()
+
+        var commands: [OfferedCommand] = []
+        func offer(_ command: String, _ title: String, when condition: Bool = true) {
+            if condition, supported.contains(command) { commands.append(OfferedCommand(command: command, title: title)) }
+        }
+        offer("test.battery.start.quick", "Run Quick Self-Test")
+        offer("test.battery.start", "Run Self-Test", when: !supported.contains("test.battery.start.quick"))
+        offer("test.battery.start.deep", "Run Deep Self-Test")
+        offer("test.battery.stop", "Stop Self-Test", when: testMayBeRunning)
+        offer("calibrate.start", "Calibrate Battery Runtime", when: !calibrating)
+        offer("calibrate.stop", "Stop Calibration", when: calibrating)
+        offer("test.panel.start", "Test Lights and Beeper")
+        offer("beeper.disable", "Turn Off Beeper", when: beeper != "disabled")
+        offer("beeper.enable", "Turn On Beeper", when: beeper != "enabled")
+        return commands
+    }
+
+    /// What to tell the user when the server turns a command down, and whether
+    /// changing the sign-in could fix it.
+    static func commandRefusal(_ error: Error, commandTitle: String, username: String?) -> (title: String, message: String, offersSignIn: Bool) {
+        guard let error = error as? NUTError, error.isAuthenticationProblem else {
+            return ("Couldn't \(commandTitle.lowercasedFirstWord)", UPSMonitor.describe(error), false)
+        }
+        let who = username.map { "“\($0)”" } ?? "this user"
+        return (
+            "The server didn't let \(who) run that command",
+            "Check the username and password, and that the user has permission to run commands (instcmds) in the server's upsd.users.",
+            true
+        )
+    }
+}
+
+private extension String {
+    /// "Run Quick Self-Test" → "run Quick Self-Test", for use mid-sentence.
+    var lowercasedFirstWord: String {
+        guard let first = first else { return self }
+        return first.lowercased() + dropFirst()
+    }
 }

@@ -24,8 +24,10 @@ The existing UPS publisher retains its original undocumented IOKit integration.
 macOS supports **one recurring startup/wake rule and one recurring sleep,
 restart or shutdown rule**. Each rule has a weekday mask and a local wall-clock
 time. Three independently recurring rules as depicted in the reference cannot
-be represented by this system facility. The sheet exposes the two real slots,
-including add/remove, time, weekdays and per-rule enable/disable. Disabled rules
+be represented by this system facility. The card list exposes the two real slots, with a dedicated Add/Edit sheet,
+native time picker, recurrence presets, custom weekdays and per-rule enable/disable.
+The editor disables actions belonging to an occupied slot. Wake, startup and
+combined startup/wake remain explicit choices within the same slot. Disabled rules
 are saved as editor drafts only; they do not execute and do not supersede an
 active system rule. There is no custom scheduling engine or rolling queue.
 
@@ -42,10 +44,37 @@ Common masks (daily, weekdays, weekends, individual days) need no fallback.
 
 ## Permission and preservation
 
-There is no existing privileged helper to reuse. Pressing Apply submits one
+There is no existing privileged helper to reuse. Saving, toggling or deleting an
+active rule submits one
 validated pmset command through Standard Additions' `do shell script ... with
-administrator privileges`, executed by `/usr/bin/osascript`. The system owns the
-authentication prompt; Squirrel never handles a password. A permanently installed
+administrator privileges`, run in Squirrel's own process with `NSAppleScript`.
+The system owns the authentication prompt; Squirrel never handles a password.
+
+The prompt names the process that requests authorisation. When this ran through
+a child `/usr/bin/osascript`, macOS 27 titled it “Allow administrator access for
+a script started by ‘Squirrel’?”. In-process it reads “Allow administrator access
+for ‘Squirrel’?” and “Enter your password to continue with ‘Squirrel’”. Checked
+side by side on macOS 27.0.1 with a hardened-runtime, ad-hoc-signed test bundle;
+no entitlement is needed because no Apple event leaves the process.
+
+The rest of the prompt depends on whether Gatekeeper accepts the requesting app:
+
+- **Unverified (ad-hoc or development builds, `spctl --assess` rejects them).**
+  No icon, no lock badge, and an extra paragraph: “Apple could not verify this
+  app is free of malware…”. `AuthorizationCopyRights` (Authorization Services)
+  produced the same dialog, so a different API or a helper does not change this.
+- **Verified.** An Apple-signed requester (`security authorize -u
+  system.privilege.admin`) got the lock badged with its icon and no malware
+  paragraph. A Developer ID-signed, notarised Squirrel should get the same with
+  its own icon. That has to be confirmed on a ShipHook build; no Developer ID
+  identity is available on the development Mac.
+- **No custom text either way.** The `with prompt` string is not shown on
+  macOS 27. It is kept because earlier macOS versions display it.
+
+`NSAppleScript` is main-thread only, so the menu bar UI does not redraw while the
+system prompt is up. The prompt is modal anyway and pmset returns quickly. Authentication cancellation
+is shown as a concise message and leaves the editor open for retry. Local-only
+disabled-rule creation, editing and deletion do not request authorization. A permanently installed
 root daemon is unnecessary for these occasional changes. Subsequent operations
 use macOS's authorization behaviour; an indefinite authentication cache is not
 promised. Restart-after-failure changes use the same path.
@@ -61,7 +90,20 @@ original snapshot is checked before authentication and again inside the
 privileged operation. If another app changes the schedule, Squirrel rejects the
 edit. There is no cross-process compare-and-swap API: another writer can still
 race the final check/pmset invocation. Readback must agree with the requested
-active pair before success is reported.
+active pair before success is reported or disabled drafts are committed. The
+verified snapshot updates the UI directly, avoiding a second fallible read after
+commit. The authorization-time snapshot uses the same C locale as the reader.
+
+### Why not a new privileged helper?
+
+The installed `SMAppService.h` documents that a LaunchDaemon must be approved by
+an administrator in System Settings before it is bootstrapped, and its containing
+app must be notarized. SMAppService manages registration; it does not make an
+ordinary app privileged or eliminate consent. A future helper would need a signed,
+notarized daemon, a narrow XPC interface with client validation, lifecycle handling,
+and explicit installation/approval UI. That architectural change is not warranted
+solely to alter the wording of an occasional authentication prompt. The supported
+existing backend is retained; authentication caching remains controlled by macOS.
 
 ## Platform and recovery limits
 
@@ -110,6 +152,9 @@ termination and must not be used as an audit guarantee.
 - [Apple: IOPMCopyScheduledPowerEvents](https://developer.apple.com/documentation/iokit/1557109-iopmcopyscheduledpowerevents)
 - [Apple: public IOPMLib interfaces](https://developer.apple.com/documentation/iokit/iopmlib_h)
 - [Apple's pmset implementation](https://github.com/apple-oss-distributions/PowerManagement/blob/main/pmset/pmset.m)
+- [Apple: SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)
+- [Apple: do shell script in AppleScript](https://developer.apple.com/library/archive/technotes/tn2065/_index.html)
+- Installed Standard Additions scripting dictionary: `do shell script` / `with prompt`.
 - Local `man pmset`: Scheduled Event Arguments, UPS Specific Arguments, and
   `autorestart`. All scheduling code retains Squirrel's macOS 13 deployment target.
 

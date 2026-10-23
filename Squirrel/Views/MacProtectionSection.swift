@@ -126,7 +126,7 @@ struct MacProtectionSection: View {
                                 .font(.callout).foregroundStyle(DashboardPalette.secondary)
                         }
                         if showsSettingsButton {
-                            Button("UPS Settings…") { MenuBarView.openEnergySettings() }
+                            Button("UPS Settings…") { MenuBarMenu.openEnergySettings() }
                         }
                     }
                     .padding(16)

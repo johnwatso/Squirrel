@@ -29,12 +29,16 @@ struct RepeatingPowerSchedule: Identifiable, Equatable, Codable, Sendable {
         zip(Array("MTWRFSU"), 0..<7).compactMap { days & (1 << $0.1) != 0 ? String($0.0) : nil }.joined()
     }
     var timeArgument: String { String(format: "%02d:%02d:00", minutes / 60, minutes % 60) }
-    var summary: String {
-        guard enabled else { return "Disabled" }
+    var timeText: String {
         let date = Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
-        let dayText = days == 127 ? "Every day" : days == 31 ? "Weekdays" : days == 96 ? "Weekends" :
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+    var recurrenceText: String {
+        days == 127 ? "Every day" : days == 31 ? "Weekdays" : days == 96 ? "Weekends" :
             (0..<7).filter { days & (1 << $0) != 0 }.map { Self.dayNames[$0] }.joined(separator: ", ")
-        return "\(dayText) at \(date.formatted(date: .omitted, time: .shortened))"
+    }
+    var summary: String {
+        enabled ? "\(recurrenceText) at \(timeText)" : "Disabled"
     }
 
     static func arguments(for schedules: [Self]) throws -> [String] {
@@ -49,7 +53,14 @@ struct RepeatingPowerSchedule: Identifiable, Equatable, Codable, Sendable {
 
 enum ScheduleError: LocalizedError {
     case invalid(String)
-    var errorDescription: String? { if case .invalid(let text) = self { return text }; return nil }
+    case authorizationCancelled
+
+    var errorDescription: String? {
+        switch self {
+        case .invalid(let text): return text
+        case .authorizationCancelled: return "Authorization was cancelled. Your changes were not saved."
+        }
+    }
 }
 
 struct ScheduledSystemEvent: Identifiable, Sendable {
@@ -149,29 +160,36 @@ final class PowerScheduleService: ObservableObject {
         return result
     }
 
+    func clearError() { lastError = nil }
+
     func apply(_ draft: [RepeatingPowerSchedule], expectedBaseline: String) async -> Bool {
         guard !isApplying, readError == nil else { return false }
         lastError = nil
+        isApplying = true
+        defer { isApplying = false }
         do {
             let arguments = try RepeatingPowerSchedule.arguments(for: draft)
             guard try reader(["-g", "sched"]) == expectedBaseline else {
                 refresh()
                 throw ScheduleError.invalid("The system schedule changed while you were editing. Close and reopen this sheet before applying changes.")
             }
-            if draft.filter(\.enabled) != schedules.filter(\.enabled) {
-                isApplying = true
-                defer { isApplying = false }
+            if draft.filter(\.enabled).sorted(by: { $0.id < $1.id }) != schedules.filter(\.enabled).sorted(by: { $0.id < $1.id }) {
                 try await writer(arguments, expectedBaseline)
             }
-            defaults.set(try JSONEncoder().encode(draft.filter { !$0.enabled }), forKey: Self.draftKey)
-            refresh()
-            let actual = schedules.filter(\.enabled).sorted { $0.id < $1.id }
+            let output = try reader(["-g", "sched"])
+            let actual = try Self.parse(output).sorted { $0.id < $1.id }
             let expected = draft.filter(\.enabled).sorted { $0.id < $1.id }
-            guard readError == nil, actual == expected else {
+            guard actual == expected else {
                 throw ScheduleError.invalid("macOS did not return the requested schedule. Review the current system settings before trying again.")
             }
+            // Commit local drafts only after the system confirms the entire active pair.
+            defaults.set(try JSONEncoder().encode(draft.filter { !$0.enabled }), forKey: Self.draftKey)
+            schedules = actual + draft.filter { !$0.enabled }
+            baseline = output
+            readError = nil
             return true
         } catch {
+            refresh()
             lastError = error.localizedDescription
             return false
         }
@@ -209,21 +227,26 @@ final class PowerScheduleService: ObservableObject {
         var command = (["/usr/bin/pmset"] + arguments).map(quote).joined(separator: " ")
         if let expectedSchedule {
             let expected = expectedSchedule.trimmingCharacters(in: .newlines)
-            command = "current=$(/usr/bin/pmset -g sched) && if [ \"$current\" = " + quote(expected) + " ]; then " + command + "; else echo 'The system schedule changed during authentication. Reopen the sheet before applying.' >&2; exit 1; fi"
+            command = "export LC_ALL=C LANG=C; current=$(/usr/bin/pmset -g sched) && if [ \"$current\" = " + quote(expected) + " ]; then " + command + "; else echo 'The system schedule changed during authentication. Reopen the sheet before applying.' >&2; exit 1; fi"
         }
-        let script = "do shell script \"" + command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\" with administrator privileges"
-        try await Task.detached {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            process.arguments = ["-e", script]
-            let pipe = Pipe()
-            process.standardError = pipe
-            try process.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else {
-                throw ScheduleError.invalid(String(decoding: data, as: UTF8.self))
-            }
-        }.value
+        let prompt = expectedSchedule == nil
+            ? "Squirrel needs permission to change automatic restart after a power failure."
+            : "Squirrel needs permission to update your Mac’s power schedule."
+        let script = "do shell script \"" + command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\" with administrator privileges with prompt \"" + prompt + "\""
+        // Run in-process, not via /usr/bin/osascript: macOS names the process
+        // that asks, so a child osascript reads as “a script started by
+        // Squirrel” while this reads as Squirrel. NSAppleScript is main-thread
+        // only; yield first so the applying state draws before the prompt.
+        await Task.yield()
+        guard let appleScript = NSAppleScript(source: script) else {
+            throw ScheduleError.invalid("macOS could not update the power settings. Please try again.")
+        }
+        var errorInfo: NSDictionary?
+        appleScript.executeAndReturnError(&errorInfo)
+        if let errorInfo {
+            if errorInfo[NSAppleScript.errorNumber] as? Int == -128 { throw ScheduleError.authorizationCancelled }
+            let message = (errorInfo[NSAppleScript.errorMessage] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            throw ScheduleError.invalid(message.isEmpty ? "macOS could not update the power settings. Please try again." : message)
+        }
     }
 }

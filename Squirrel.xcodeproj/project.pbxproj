@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		040E1B9DB29209758CBD6709 /* UPSDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */; };
-		9232EA7852AB8CA2E5EEA344 /* UPSIllustration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB75C612F8D91053DC40C8A /* UPSIllustration.swift */; };
 		084A45AC14C41DAC3DAD8614 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590DAD026CC235986FFB4FF7 /* LoginItemService.swift */; };
 		0EDA19EF7D8945BCEEF031E7 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F5AC8DFC68074078F46EE5 /* PreferencesView.swift */; };
 		131A98E97E1E26644EC835E7 /* PowerHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D6C3D8C2757A791239AEFD /* PowerHistory.swift */; };
@@ -22,6 +21,7 @@
 		2BA583C11EB34A22DACC9D6E /* PowerHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C5CF9F1E5AB860B4B0A327 /* PowerHistoryTests.swift */; };
 		30B408C13851F117C8336C87 /* UPSMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DAE132BD9D462EB21821BFD /* UPSMonitor.swift */; };
 		311AB4F94428680F7131784C /* UPSNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B669E25B9C00E7B241BFCBF2 /* UPSNaming.swift */; };
+		3248A79AF5B97130DA3394B2 /* MenuBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2FCC99460C81D248464E2DE /* MenuBarMenu.swift */; };
 		3716C8E6C37EF546CCD63D8D /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B0604D0A71E21E4AA834F5B8 /* Sparkle */; };
 		37252601274D3B39255DE0CB /* squirrelctl in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 6952B14DB4C594A2F74AE327 /* squirrelctl */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3B7F98FC573AED6866C670A0 /* SystemPowerSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D9ED1BE19DD453E411BB61 /* SystemPowerSources.swift */; };
@@ -33,13 +33,12 @@
 		5246340DAE02F2F9FD79CCFC /* Squirrel.icon in Resources */ = {isa = PBXBuildFile; fileRef = 8B450D9DA1E2B32D9347DE24 /* Squirrel.icon */; };
 		5D0366257FF15BC5D641D70A /* MenuBarPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2649476C9A5CDF29BB562BEC /* MenuBarPresentation.swift */; };
 		5DBC5695AE239F359594BCF8 /* PowerHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B1AECDD06F9FCCA443B1278 /* PowerHistoryView.swift */; };
+		6BED51274D2AB5A661AB9E0A /* UPSIllustration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A8527D868EDF54872DC3B28 /* UPSIllustration.swift */; };
 		6E3D60D6FEA318D9144A9A6E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 506A4B33BAC97969440E62BF /* AppModel.swift */; };
 		721DB6149E4E614E3F403FEC /* UPSDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14CA904062E0BC17B94B5942 /* UPSDevice.swift */; };
 		7F751089BE6C96B3308BA964 /* PowerSourcePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024ECFA1E1C6A97C7F46D506 /* PowerSourcePublisher.swift */; };
-		85CA3A92A8C91074C3CABAE2 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101A72E73FA7E80FD792D343 /* MenuBarView.swift */; };
 		8703C651F842BD44F2DB041B /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC717102E1BB4F4C4337273 /* AppPreferences.swift */; };
 		889AFA7084204D4499D40251 /* UPSNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D0465DBF9E7DCC00B4668D /* UPSNamingTests.swift */; };
-		1005DD774BE032EBA20B8356 /* UPSIllustrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91E6F54DD6C226129F6BD48 /* UPSIllustrationTests.swift */; };
 		9CF39577A2E95F95735D4B54 /* NUTProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615986FF006E2E644F42F535 /* NUTProtocolTests.swift */; };
 		9DFEAF81B2671084BFCB5D11 /* CommandService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9010AF914984658AC6DBF9AF /* CommandService.swift */; };
 		A0EDA755E61C1241A3A4C74F /* SquirrelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6147DFC2E41DAF635F023387 /* SquirrelApp.swift */; };
@@ -60,6 +59,7 @@
 		E24532CF219532DF6F2394EF /* DisclosureRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5901C6CEC2F99B33F1F1C186 /* DisclosureRow.swift */; };
 		E31454C4C9273845A795E396 /* UPSPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D048F7774992074239248B /* UPSPresentation.swift */; };
 		E7671C8284EC54CAB8687F85 /* UPSManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0FF5087A41311AEC9CE059 /* UPSManagementView.swift */; };
+		E7F36947FAC36DBE21660C0E /* UPSIllustrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC1D81B8244E6CCEF05FD858 /* UPSIllustrationTests.swift */; };
 		E83350A0AFC1B76B5859008D /* UPSDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D53E073DBB3A4AB7FE75894 /* UPSDevicesView.swift */; };
 		E94CF34BAF1F862C81270F5D /* PowerScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CA7CD40844AC3B8C1C2C86 /* PowerScheduleView.swift */; };
 		EBE16D99746819C0D7289396 /* NUTProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B26C55D6331534D0517F30A /* NUTProtocol.swift */; };
@@ -128,17 +128,14 @@
 		095160C9CF30539EE17B2DA9 /* PowerSourceSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerSourceSnapshot.swift; sourceTree = "<group>"; };
 		0A258827873DB0F3EA66B799 /* SleepAssertionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAssertionService.swift; sourceTree = "<group>"; };
 		0AB6D19CFBEBE1B396BB8470 /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
-		101A72E73FA7E80FD792D343 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		14CA904062E0BC17B94B5942 /* UPSDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSDevice.swift; sourceTree = "<group>"; };
 		1A619B9C5EE66679AACFF771 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		1B0FF5087A41311AEC9CE059 /* UPSManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSManagementView.swift; sourceTree = "<group>"; };
 		22D0465DBF9E7DCC00B4668D /* UPSNamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSNamingTests.swift; sourceTree = "<group>"; };
-		A91E6F54DD6C226129F6BD48 /* UPSIllustrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSIllustrationTests.swift; sourceTree = "<group>"; };
 		2453BBBD9F46A49D25516CCE /* PowerScheduleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerScheduleTests.swift; sourceTree = "<group>"; };
 		2649476C9A5CDF29BB562BEC /* MenuBarPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPresentation.swift; sourceTree = "<group>"; };
 		3337E9B2B174DBAD38F65329 /* UPSStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSStatus.swift; sourceTree = "<group>"; };
 		35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSDetailView.swift; sourceTree = "<group>"; };
-		0AB75C612F8D91053DC40C8A /* UPSIllustration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSIllustration.swift; sourceTree = "<group>"; };
 		3850DF68D4553DE34405811B /* UPSStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSStatusTests.swift; sourceTree = "<group>"; };
 		38C22D8A8888BF184E5223DD /* SquirrelCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquirrelCommand.swift; sourceTree = "<group>"; };
 		47D023D50C6F993479A46F53 /* ConnectionAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionAssistantView.swift; sourceTree = "<group>"; };
@@ -163,13 +160,16 @@
 		962AD48157DC17139C18EB68 /* AssistantComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantComponents.swift; sourceTree = "<group>"; };
 		97BE1B75986770D1EBDF528B /* NUTServerKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUTServerKind.swift; sourceTree = "<group>"; };
 		9A56F073EAA3C7948D84488B /* PowerProfileAdvisorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerProfileAdvisorTests.swift; sourceTree = "<group>"; };
+		9A8527D868EDF54872DC3B28 /* UPSIllustration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSIllustration.swift; sourceTree = "<group>"; };
 		ACD232D698DC27A2FAEB00B4 /* UIRefinementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIRefinementTests.swift; sourceTree = "<group>"; };
 		B3363A90C70257380743E224 /* MacProtectionSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacProtectionSection.swift; sourceTree = "<group>"; };
 		B669E25B9C00E7B241BFCBF2 /* UPSNaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSNaming.swift; sourceTree = "<group>"; };
 		B89FDF12BC5845FBD96EA575 /* SquirrelTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SquirrelTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9525FA44434DCD2C1BE6987 /* PowerProfileAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerProfileAdvisor.swift; sourceTree = "<group>"; };
+		BC1D81B8244E6CCEF05FD858 /* UPSIllustrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSIllustrationTests.swift; sourceTree = "<group>"; };
 		BCC717102E1BB4F4C4337273 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		C2F5AC8DFC68074078F46EE5 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		C2FCC99460C81D248464E2DE /* MenuBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarMenu.swift; sourceTree = "<group>"; };
 		C6D048F7774992074239248B /* UPSPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSPresentation.swift; sourceTree = "<group>"; };
 		D1C5CF9F1E5AB860B4B0A327 /* PowerHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerHistoryTests.swift; sourceTree = "<group>"; };
 		D1CA7CD40844AC3B8C1C2C86 /* PowerScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerScheduleView.swift; sourceTree = "<group>"; };
@@ -212,14 +212,14 @@
 			children = (
 				5901C6CEC2F99B33F1F1C186 /* DisclosureRow.swift */,
 				B3363A90C70257380743E224 /* MacProtectionSection.swift */,
+				C2FCC99460C81D248464E2DE /* MenuBarMenu.swift */,
 				2649476C9A5CDF29BB562BEC /* MenuBarPresentation.swift */,
-				101A72E73FA7E80FD792D343 /* MenuBarView.swift */,
 				6B1AECDD06F9FCCA443B1278 /* PowerHistoryView.swift */,
 				D1CA7CD40844AC3B8C1C2C86 /* PowerScheduleView.swift */,
 				C2F5AC8DFC68074078F46EE5 /* PreferencesView.swift */,
 				35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */,
-				0AB75C612F8D91053DC40C8A /* UPSIllustration.swift */,
 				7D53E073DBB3A4AB7FE75894 /* UPSDevicesView.swift */,
+				9A8527D868EDF54872DC3B28 /* UPSIllustration.swift */,
 				1B0FF5087A41311AEC9CE059 /* UPSManagementView.swift */,
 				C6D048F7774992074239248B /* UPSPresentation.swift */,
 				D28BCC9066CEABC400C61468 /* Onboarding */,
@@ -238,8 +238,8 @@
 				2453BBBD9F46A49D25516CCE /* PowerScheduleTests.swift */,
 				E0B66BDAE783389C6DC510C0 /* PowerSourceSnapshotTests.swift */,
 				ACD232D698DC27A2FAEB00B4 /* UIRefinementTests.swift */,
+				BC1D81B8244E6CCEF05FD858 /* UPSIllustrationTests.swift */,
 				22D0465DBF9E7DCC00B4668D /* UPSNamingTests.swift */,
-				A91E6F54DD6C226129F6BD48 /* UPSIllustrationTests.swift */,
 				3850DF68D4553DE34405811B /* UPSStatusTests.swift */,
 				5F9922D65A7D90DB9BA63ED0 /* UPSTelemetryTests.swift */,
 			);
@@ -555,8 +555,8 @@
 				E24532CF219532DF6F2394EF /* DisclosureRow.swift in Sources */,
 				084A45AC14C41DAC3DAD8614 /* LoginItemService.swift in Sources */,
 				EDFB18B9EF94394CA96EEC5C /* MacProtectionSection.swift in Sources */,
+				3248A79AF5B97130DA3394B2 /* MenuBarMenu.swift in Sources */,
 				5D0366257FF15BC5D641D70A /* MenuBarPresentation.swift in Sources */,
-				85CA3A92A8C91074C3CABAE2 /* MenuBarView.swift in Sources */,
 				C8843EC5019EF7406D95F59E /* NUTDiscoveryService.swift in Sources */,
 				C25EC77BB11617C683128BEA /* NUTServerKind.swift in Sources */,
 				ACEB73F92BB130EE5885DC7A /* NotificationService.swift in Sources */,
@@ -571,9 +571,9 @@
 				A0EDA755E61C1241A3A4C74F /* SquirrelApp.swift in Sources */,
 				16B70999280CBB352E6625F7 /* SquirrelShortcuts.swift in Sources */,
 				040E1B9DB29209758CBD6709 /* UPSDetailView.swift in Sources */,
-				9232EA7852AB8CA2E5EEA344 /* UPSIllustration.swift in Sources */,
 				721DB6149E4E614E3F403FEC /* UPSDevice.swift in Sources */,
 				E83350A0AFC1B76B5859008D /* UPSDevicesView.swift in Sources */,
+				6BED51274D2AB5A661AB9E0A /* UPSIllustration.swift in Sources */,
 				E7671C8284EC54CAB8687F85 /* UPSManagementView.swift in Sources */,
 				30B408C13851F117C8336C87 /* UPSMonitor.swift in Sources */,
 				311AB4F94428680F7131784C /* UPSNaming.swift in Sources */,
@@ -593,8 +593,8 @@
 				515A49EF514A22D8EE64E7D6 /* PowerScheduleTests.swift in Sources */,
 				2B7AA362E6D47B8F04DA9CF4 /* PowerSourceSnapshotTests.swift in Sources */,
 				BB6A793FAA9815A547D7CA0C /* UIRefinementTests.swift in Sources */,
+				E7F36947FAC36DBE21660C0E /* UPSIllustrationTests.swift in Sources */,
 				889AFA7084204D4499D40251 /* UPSNamingTests.swift in Sources */,
-				1005DD774BE032EBA20B8356 /* UPSIllustrationTests.swift in Sources */,
 				E194C76A2038027E7D4B1FED /* UPSStatusTests.swift in Sources */,
 				BF05A9D358B71B808C98C5A9 /* UPSTelemetryTests.swift in Sources */,
 			);

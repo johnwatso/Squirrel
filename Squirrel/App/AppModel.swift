@@ -237,6 +237,44 @@ final class AppModel: ObservableObject {
         shouldOpenAssistantWindow = true
     }
 
+    /// Opens the assistant on a UPS's connection with the sign-in fields
+    /// showing, for a user who needs to add or fix a username.
+    func beginSigningIn(_ device: UPSDevice) {
+        beginConnectionAssistant(editing: device)
+        assistant?.showsAuthentication = true
+    }
+
+    /// Runs a UPS command from the menu bar, which only offers them for a UPS
+    /// with a saved sign-in. A refusal is explained on its own rather than
+    /// shown as the UPS having failed.
+    func runCommand(_ command: String, titled title: String, on device: UPSDevice) async {
+        guard MenuBarPresentation.canRunCommands(on: device) else { return }
+        do {
+            try await monitor.runInstantCommand(command, on: device)
+        } catch {
+            let refusal = MenuBarPresentation.commandRefusal(error, commandTitle: title, username: device.username)
+            if askToSignIn(title: refusal.title, message: refusal.message, signInTitle: refusal.offersSignIn ? "Change Sign-In…" : nil) {
+                beginSigningIn(device)
+            }
+        }
+    }
+
+    /// A modal alert, brought to the front because it is usually raised from
+    /// the menu bar. True when the user chose to sign in.
+    private func askToSignIn(title: String, message: String, signInTitle: String?) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        if let signInTitle {
+            alert.addButton(withTitle: signInTitle)
+            alert.addButton(withTitle: "Cancel")
+        } else {
+            alert.addButton(withTitle: "OK")
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertFirstButtonReturn && signInTitle != nil
+    }
+
     func endConnectionAssistant() {
         discovery.stop()
         assistant = nil

@@ -136,16 +136,20 @@ final class UPSMonitor: ObservableObject {
         busyDeviceIDs.contains(device.id)
     }
 
-    /// Runs a NUT instant command, such as `test.battery.start.quick`.
-    func runInstantCommand(_ name: String, on device: UPSDevice) async {
-        guard let client = clients[device.id] else { return }
+    /// Runs a NUT instant command, such as `test.battery.start.quick`. A
+    /// refusal is thrown to the caller rather than recorded as the UPS's
+    /// state: the server turning down a command says nothing about whether
+    /// the UPS itself is reachable, and polling carries on regardless.
+    func runInstantCommand(_ name: String, on device: UPSDevice) async throws {
+        guard let client = clients[device.id] else { throw NUTError.notConnected }
         busyDeviceIDs.insert(device.id)
         defer { busyDeviceIDs.remove(device.id) }
         do {
             try await client.instantCommand(name, ups: device.upsName)
             log.notice("Ran \(name, privacy: .public) on \(device.displayName, privacy: .public)")
         } catch {
-            states[device.id] = .failed(Self.describe(error))
+            log.error("\(name, privacy: .public) on \(device.displayName, privacy: .public) was refused: \(Self.describe(error), privacy: .public)")
+            throw error
         }
     }
 
@@ -363,7 +367,7 @@ final class UPSMonitor: ObservableObject {
         UserDefaults.standard.set(stored, forKey: Self.verifiedKey)
     }
 
-    static func describe(_ error: Error) -> String {
+    nonisolated static func describe(_ error: Error) -> String {
         guard let error = error as? NUTError else { return error.localizedDescription }
         return error.friendlyDescription
     }

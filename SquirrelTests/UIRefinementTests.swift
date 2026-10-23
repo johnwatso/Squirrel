@@ -19,21 +19,23 @@ final class UIRefinementTests: XCTestCase {
         XCTAssertEqual(missing.text(at: now), "No reading yet")
     }
 
-    func testMenuMeasurementsUseReportedValuesAndOmitUnsupportedOnes() {
+    func testMenuTelemetryUsesReportedValuesAndOmitsUnsupportedOnes() {
         let reading = UPSReading(upsName: "rack", variables: [
             "ups.status": "OL", "battery.charge": "87", "battery.runtime": "3780",
             "ups.realpower": "140", "ups.load": "14"
         ])
-        XCTAssertEqual(MenuBarPresentation.measurementLines(for: .online(reading)), [
-            "Battery: 87%", "Runtime: 1 hr 3 min", "Power: 140 W", "Load: 14%"
+        XCTAssertEqual(MenuBarPresentation.telemetryRows(for: .online(reading)), [
+            .init(label: "Battery", value: "87%"),
+            .init(label: "Runtime", value: "1 hr 3 min"),
+            .init(label: "UPS Load", value: "14% · 140 W"),
         ])
-        XCTAssertEqual(MenuBarPresentation.measurementLines(for: .failed("Offline")), [])
-        XCTAssertEqual(MenuBarPresentation.measurementLines(for: .online(UPSReading(upsName: "minimal", variables: ["ups.status": "OL"]))), [])
+        XCTAssertEqual(MenuBarPresentation.telemetryRows(for: .failed("Offline")), [])
+        XCTAssertEqual(MenuBarPresentation.telemetryRows(for: .online(UPSReading(upsName: "minimal", variables: ["ups.status": "OL"]))), [])
     }
 
     func testApparentPowerIsNotMislabelledAsWatts() {
         let reading = UPSReading(upsName: "ups", variables: ["ups.power": "200"])
-        XCTAssertEqual(MenuBarPresentation.measurementLines(for: .online(reading)), ["Apparent power: 200 VA"])
+        XCTAssertEqual(MenuBarPresentation.telemetryRows(for: .online(reading)), [.init(label: "UPS Load", value: "200 VA")])
     }
 
     @MainActor

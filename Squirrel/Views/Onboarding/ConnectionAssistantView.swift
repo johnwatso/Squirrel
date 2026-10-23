@@ -760,7 +760,7 @@ struct ConnectionAssistantView: View {
     private var finishedFooterButtons: some View {
         switch assistant.outcome {
         case .published:
-            Button("Open UPS Settings") { MenuBarView.openEnergySettings() }
+            Button("Open UPS Settings") { MenuBarMenu.openEnergySettings() }
                 .assistantSecondaryButton()
             Button("Done") { onFinish(assistant.connectedDevice) }
                 .assistantPrimaryButton()

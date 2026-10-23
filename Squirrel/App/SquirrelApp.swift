@@ -16,20 +16,12 @@ struct SquirrelApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuBarView()
-                .environmentObject(appModel)
-                .environmentObject(appModel.settings)
-                .environmentObject(appModel.monitor)
-        } label: {
-            MenuBarLabel()
-                .environmentObject(appModel)
-                .environmentObject(appModel.monitor)
-                .environmentObject(appModel.settings)
+        // The menu itself is an AppKit NSMenu (see MenuBarMenu). This
+        // never-inserted extra stays first so SwiftUI has a scene that does
+        // not open at launch; without it the first Window below would.
+        MenuBarExtra("Squirrel", systemImage: "bolt.fill", isInserted: .constant(false)) {
+            EmptyView()
         }
-        // A native NSMenu, not a custom popover. Nothing to animate means
-        // nothing to animate incorrectly.
-        .menuBarExtraStyle(.menu)
 
         Window("Set Up Your UPS", id: AppModel.assistantWindowID) {
             ConnectionAssistantWindow()
@@ -69,14 +61,17 @@ struct SquirrelApp: App {
     }
 }
 
-private struct MenuBarLabel: View {
+/// Hosted invisibly inside the status item, so SwiftUI's window opening and
+/// first-run setup have a view that lives as long as the menu bar item.
+struct MenuBarLifecycle: View {
     @EnvironmentObject private var appModel: AppModel
-    @EnvironmentObject private var monitor: UPSMonitor
     @EnvironmentObject private var settings: SettingsStore
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        label
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
             .onAppear(perform: beginSetupOnFirstRun)
             .onReceive(appModel.$shouldOpenManageWindow) { shouldOpen in
                 guard shouldOpen else { return }
@@ -90,27 +85,6 @@ private struct MenuBarLabel: View {
                 NSApp.activate(ignoringOtherApps: true)
                 appModel.shouldOpenAssistantWindow = false
             }
-    }
-
-    @ViewBuilder
-    private var label: some View {
-        let state = appModel.primaryDevice.map { monitor.state(for: $0) } ?? .idle
-        let symbol = MenuBarPresentation.symbolName(for: state)
-        let text = MenuBarPresentation.menuBarText(for: state, display: settings.preferences.menuBarDisplay)
-
-        // Label renders as icon + title in the menu bar; dropping the title
-        // keeps it to a bare glyph when there is nothing worth saying. The two
-        // label styles are different types, so this cannot be a ternary.
-        if let text {
-            Label(text, systemImage: symbol)
-                .labelStyle(.titleAndIcon)
-                .accessibilityLabel("Squirrel")
-                .accessibilityValue(MenuBarPresentation.summary(for: state))
-        } else {
-            Label("Squirrel", systemImage: symbol)
-                .labelStyle(.iconOnly)
-                .accessibilityValue(MenuBarPresentation.summary(for: state))
-        }
     }
 
     /// First run opens the assistant, not the management window. An existing
@@ -147,6 +121,7 @@ private struct SquirrelCommands: Commands {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var appModel: AppModel?
+    private var menuBarMenu: MenuBarMenu?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
@@ -155,6 +130,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the process that published it. Paired with NSSupportsAutomaticTermination
         // in Info.plist, because a stale copy in /Applications carries the old plist.
         ProcessInfo.processInfo.disableAutomaticTermination("Squirrel publishes the Mac's UPS power source")
+
+        guard let appModel, NSClassFromString("XCTestCase") == nil else { return }
+        MainActor.assumeIsolated {
+            let lifecycle = NSHostingView(rootView: MenuBarLifecycle()
+                .environmentObject(appModel)
+                .environmentObject(appModel.settings))
+            menuBarMenu = MenuBarMenu(appModel: appModel, lifecycleView: lifecycle)
+            #if DEBUG
+            menuBarMenu?.openForVerificationIfRequested()
+            #endif
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
