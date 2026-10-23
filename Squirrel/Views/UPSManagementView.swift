@@ -138,7 +138,7 @@ struct UPSManagementView: View {
                 .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
-            .help("Choose a dashboard UPS; this does not change Mac protection")
+            .help("Choose a dashboard UPS; this does not change which UPS is shared with macOS")
             Spacer().frame(width: dashboardWidth < 640 ? 8 : 54)
             HStack(spacing: dashboardWidth < 540 ? 6 : 16) {
                 Button { showingSchedule = true } label: {
@@ -191,7 +191,7 @@ struct UPSManagementView: View {
                             .frame(width: 10, height: 10).padding(.top, 4)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(device.displayName).foregroundStyle(.primary)
-                            Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Protecting this Mac" : "Mac integration off") : "Monitoring only")
+                            Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
@@ -236,7 +236,7 @@ struct UPSManagementView: View {
         }
         Button("Change Connection…") { appModel.beginConnectionAssistant(editing: device) }
         if settings.devices.count > 1, !device.publishesToSystem {
-            Button("Use to Protect This Mac") { appModel.useForMacProtection(device) }
+            Button("Share with macOS") { appModel.useForMacProtection(device) }
         }
         Button("Show Power History") { appModel.showHistory(for: device) }
         Divider()

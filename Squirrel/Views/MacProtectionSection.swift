@@ -12,19 +12,27 @@ struct MacProtectionStatus: Equatable {
     enum Level: Equatable {
         case active
         case attention
+        /// Sharing with macOS is turned off in Squirrel's settings.
+        case notShared
         case inactive
         case checking
     }
 
     var level: Level
+    /// The card's status word: "Connected", "No Shutdown Rule".
     var title: String
+    /// The same state as one line for the menu: "Connected to macOS".
+    var summary: String
     var explanation: String?
+    /// Whether macOS is reporting the UPS as a power source, whatever else
+    /// still needs attention.
+    var isConnected = false
 
     var tint: Color {
         switch level {
         case .active: return .green
         case .attention: return .orange
-        case .inactive, .checking: return .secondary
+        case .notShared, .inactive, .checking: return .secondary
         }
     }
 
@@ -37,33 +45,34 @@ struct MacProtectionStatus: Equatable {
         integrationUnavailable: Bool
     ) -> MacProtectionStatus {
         guard preferences.publishPowerSource else {
-            return .init(level: .inactive, title: "Off", explanation: "Presenting the UPS to macOS is turned off in Squirrel's settings, so macOS will not shut this Mac down during an outage.")
+            return .init(level: .notShared, title: "Off", summary: "Not shared with macOS", explanation: "Sharing the UPS with macOS is turned off, so macOS won't shut this Mac down during an outage.")
         }
         guard device.publishesToSystem else {
-            return .init(level: .inactive, title: "Monitoring Only", explanation: "Another UPS protects this Mac. Squirrel is monitoring this one without presenting it to macOS.")
+            return .init(level: .inactive, title: "Monitoring Only", summary: "Monitoring only", explanation: "Another UPS is shared with macOS. Squirrel is monitoring this one without sharing it.")
         }
         guard !integrationUnavailable else {
-            return .init(level: .attention, title: "Unavailable", explanation: "This version of macOS is not accepting a UPS from Squirrel, so it cannot shut the Mac down during an outage.")
+            return .init(level: .attention, title: "Unavailable", summary: "macOS isn't accepting this UPS", explanation: "This version of macOS is not accepting a UPS from Squirrel, so it cannot shut the Mac down during an outage.")
         }
 
         switch integration {
         case .noUPSConfigured, .connecting:
-            return .init(level: .checking, title: "Checking…", explanation: nil)
+            return .init(level: .checking, title: "Checking…", summary: "Checking macOS connection…", explanation: nil)
         case .disconnected:
-            return .init(level: .attention, title: "Not Protected", explanation: "Squirrel can't read the UPS, so macOS has been told it isn't present rather than being given a stale reading.")
+            return .init(level: .attention, title: "Not Connected", summary: "macOS can't see this UPS", explanation: "Squirrel can't read the UPS, so it has told macOS the UPS isn't present rather than pass on a stale reading.")
         case .monitoringOnly:
-            return .init(level: .attention, title: "Not Detected", explanation: "Squirrel is reading the UPS, but macOS is not reporting it as a power source yet.")
+            return .init(level: .attention, title: "Not Detected", summary: "macOS can't see this UPS", explanation: "Squirrel is reading the UPS, but macOS is not reporting it as a power source yet.")
         case .published:
             guard advice.didReadThresholds else {
-                return .init(level: .attention, title: "Rules Unknown", explanation: "macOS sees the UPS, but Squirrel could not read its shutdown settings.")
+                return .init(level: .attention, title: "Rules Unknown", summary: "Connected · shutdown rules unknown", explanation: "macOS sees the UPS, but Squirrel could not read its shutdown settings.", isConnected: true)
             }
             guard advice.hasShutdownThreshold else {
-                return .init(level: .attention, title: "No Shutdown Rule", explanation: "macOS sees the UPS, but no shutdown rule is set, so the Mac will run until the UPS is exhausted.")
+                return .init(level: .attention, title: "No Shutdown Rule", summary: "Connected · no shutdown rule", explanation: "macOS sees the UPS, but no shutdown rule is set, so the Mac will run until the UPS is exhausted.", isConnected: true)
             }
             if advice.needsAttention(whenKeepingAwake: preferences.preventSleepDuringOutage) {
-                return .init(level: .attention, title: "Needs Attention", explanation: "Your Mac sleeps \(advice.sleepMinutes ?? 0) min into an outage, so it may never reach its shutdown rule. Turn on “Keep the Mac awake” in Squirrel's settings, or lengthen the UPS sleep timer.")
+                return .init(level: .attention, title: "Needs Attention", summary: "Connected · Mac may sleep first", explanation: "Your Mac sleeps \(advice.sleepMinutes ?? 0) min into an outage, so it may never reach its shutdown rule. Turn on “Keep the Mac awake” in Squirrel's settings, or lengthen the UPS sleep timer.", isConnected: true)
             }
-            return .init(level: .active, title: "Recognised by macOS", explanation: nil)
+            // Green only once macOS sees the UPS and has a rule to act on.
+            return .init(level: .active, title: "Connected", summary: "Connected to macOS", explanation: nil, isConnected: true)
         }
     }
 }
@@ -110,7 +119,7 @@ struct MacProtectionSection: View {
 
     var body: some View {
         VStack(spacing: 13) {
-            DashboardSectionHeading(title: "Mac Protection", symbol: "shield") {
+            DashboardSectionHeading(title: "macOS Connection", symbol: "power.circle") {
                 Button { showingProtectionDetails = true } label: {
                     HStack(spacing: 10) {
                         Circle().fill(status.tint).frame(width: 9, height: 9)
@@ -131,8 +140,8 @@ struct MacProtectionSection: View {
                     }
                     .padding(16)
                 }
-                .help("\(status.title). Open UPS Settings or inspect sleep protection.")
-                .accessibilityLabel("Mac Protection: \(status.title). UPS Settings")
+                .help("\(status.summary). Open UPS Settings or check sleep during outages.")
+                .accessibilityLabel("macOS Connection: \(status.title). UPS Settings")
             }
             if appModel.protects(device) {
                 VStack(spacing: 0) {
@@ -161,8 +170,17 @@ struct MacProtectionSection: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !appModel.protects(device), settings.preferences.publishPowerSource, settings.devices.count > 1 {
-                Button("Use This UPS to Protect the Mac") { appModel.useForMacProtection(device) }
+            if !settings.preferences.publishPowerSource {
+                // The same switch as Settings ▸ "Share the UPS with macOS",
+                // which restarts monitoring so the UPS is published at once.
+                Button("Share with macOS") {
+                    settings.preferences.publishPowerSource = true
+                    monitor.restart()
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            } else if !appModel.protects(device), settings.devices.count > 1 {
+                Button("Share This UPS with macOS") { appModel.useForMacProtection(device) }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, 20)

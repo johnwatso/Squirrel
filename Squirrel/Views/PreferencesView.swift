@@ -148,7 +148,7 @@ private struct PowerSettingsView: View {
         Form {
             NativePowerSettings(service: appModel.powerSchedule)
             Section {
-                Toggle("Present the UPS to macOS", isOn: $settings.preferences.publishPowerSource)
+                Toggle("Share the UPS with macOS", isOn: $settings.preferences.publishPowerSource)
                 LabeledContent("Status") {
                     Label(integration.text, systemImage: integration.symbol)
                         .foregroundStyle(integration.tint)
@@ -163,7 +163,7 @@ private struct PowerSettingsView: View {
                     )
                 }
             } header: {
-                Text("macOS Integration")
+                Text("macOS Connection")
             } footer: {
                 SettingsFootnote("Your UPS appears in System Settings → Energy, where macOS performs the shutdown itself. Turning this off leaves Squirrel as a monitor only.")
             }

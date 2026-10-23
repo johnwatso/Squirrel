@@ -196,12 +196,10 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         return entries
     }
 
-    /// Whether the Mac is protected, from the same evaluation as the window.
+    /// The macOS connection, from the same evaluation as the window. Shown
+    /// whenever a UPS is set up, so "Not shared with macOS" is visible too.
     private func protectionEntries() -> [MenuEntry] {
-        guard let device = settings.systemDevice, appModel.protects(device) else {
-            guard monitor.systemIntegrationUnavailable else { return [] }
-            return [.row(id: "integration", .note("macOS is not accepting a UPS from Squirrel"))]
-        }
+        guard let device = appModel.primaryDevice else { return [] }
         let status = MacProtectionStatus.evaluate(
             device: device,
             integration: appModel.nativeIntegrationState(for: device),

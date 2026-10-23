@@ -151,3 +151,22 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
 - Captures: `Visual-Verification/menu-polish-{light,dark,long-name,unavailable,
   battery,critical,controls}.png`. These show isolated fixtures, not live UPS
   measurements; fixture code was not added to production sources.
+
+## UI audit fixes — 24 October 2026
+
+- UPS load gauge: the percentage now sits large in the ring with the power
+  beneath it, so the arc and the number match.
+- Dashboard cards are 12 pt apart throughout (previously 9, 0 and 16 pt).
+- Schedule editor: the Repeat pop-up that duplicated the preset buttons is
+  gone. Card and tile subtitles describe the action ("Put the Mac to sleep")
+  and never repeat its title, and Wake is worded the same in the list and editor.
+- "Mac Protection" is now "macOS Connection". The menu line uses the Personal
+  Hotspot symbol while macOS has the UPS and `personalhotspot.slash` while it
+  doesn't (the plain symbol before macOS 15, where the slash doesn't exist). "Connected" (green) still requires macOS to see the UPS *and* a
+  shutdown rule; other states read "Connected · no shutdown rule", "macOS
+  can't see this UPS", "Not shared with macOS" and so on. "Shared with macOS"
+  names the UPS's role, never its verified state. When sharing is off, the
+  card offers "Share with macOS" (the same switch as Settings), and the menu
+  shows the grey "Not shared with macOS" line instead of nothing.
+- Debug tests: 134 passed. The dashboard and menu were captured on the
+  isolated copy with sharing off. The schedule sheet was not captured.

@@ -17,12 +17,12 @@ struct UPSDevicesView: View {
                             Spacer()
                             StatusBadge(title: UPSAppearance.shortStatus(for: monitor.state(for: device)), tint: UPSAppearance.tint(for: monitor.state(for: device)))
                         }
-                        Text(device.publishesToSystem ? "Protecting this Mac\(settings.preferences.publishPowerSource ? "" : " · Integration disabled")" : "Monitoring only")
+                        Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
                             .font(.callout).foregroundStyle(.secondary)
                         HStack {
                             Button("Connection…") { appModel.beginConnectionAssistant(editing: device) }
                             if !device.publishesToSystem {
-                                Button("Protect This Mac") { appModel.useForMacProtection(device) }
+                                Button("Share with macOS") { appModel.useForMacProtection(device) }
                             }
                             Spacer()
                             Button("Remove…", role: .destructive) { removing = device }
@@ -31,7 +31,7 @@ struct UPSDevicesView: View {
                 }
                 Button("Add UPS…") { appModel.beginConnectionAssistant() }
             } footer: {
-                Text("One UPS supplies macOS power readings. Selecting a dashboard does not change which UPS protects the Mac.")
+                Text("One UPS is shared with macOS. Choosing a dashboard doesn't change which one.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -40,7 +40,7 @@ struct UPSDevicesView: View {
             Button("Remove \(device.displayName)", role: .destructive) { appModel.remove(device); removing = nil }
             Button("Cancel", role: .cancel) { removing = nil }
         } message: { device in
-            Text(device.publishesToSystem ? "Mac protection will stop until another UPS is selected. This UPS's history will be deleted." : "Monitoring will stop and this UPS's history will be deleted.")
+            Text(device.publishesToSystem ? "macOS will lose its UPS until you share another one. This UPS's history will be deleted." : "Monitoring will stop and this UPS's history will be deleted.")
         }
     }
 }

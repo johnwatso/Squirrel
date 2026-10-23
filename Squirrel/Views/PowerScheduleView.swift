@@ -276,16 +276,6 @@ struct ScheduleEditorSheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         sectionTitle("Repeat")
-                        ScheduleRepeatPicker(selection: presetBinding)
-                        .padding(.horizontal, 18)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))
-                        .overlay { RoundedRectangle(cornerRadius: 13).strokeBorder(.primary.opacity(0.06)).allowsHitTesting(false) }
-                        .overlay(alignment: .trailing) {
-                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.secondary).padding(.trailing, 18).allowsHitTesting(false).accessibilityHidden(true)
-                        }
-                        .accessibilityLabel("Repeat schedule").accessibilityValue(repeatPreset.rawValue)
                         HStack(spacing: 10) {
                             ForEach(ScheduleRepeatPreset.allCases) { preset in
                                 Button { selectPreset(preset) } label: {
@@ -300,6 +290,8 @@ struct ScheduleEditorSheet: View {
                                 .accessibilityAddTraits(repeatPreset == preset ? .isSelected : [])
                             }
                         }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Repeat schedule")
                         if repeatPreset == .custom {
                             HStack(spacing: 6) {
                                 ForEach(0..<7) { index in
@@ -359,6 +351,9 @@ struct ScheduleEditorSheet: View {
 
     private func actionTile(_ action: RepeatingPowerSchedule.Action) -> some View {
         let selected = action.isOn ? rule.action.isOn : rule.action == action
+        // The Wake tile stands for whichever start/wake action the rule uses,
+        // so it describes that one, in the same words as the schedule list.
+        let described = action.isOn && rule.action.isOn ? rule.action : action
         return Button {
             // Selecting the Wake tile again must preserve wake-only/startup-only.
             if !action.isOn || !rule.action.isOn { rule.action = action }
@@ -367,7 +362,7 @@ struct ScheduleEditorSheet: View {
                 Image(systemName: action.symbol).font(.system(size: 29, weight: .medium))
                     .foregroundStyle(action.scheduleColor).frame(height: 33)
                 Text(action.cardTitle).font(.system(size: 14, weight: .semibold))
-                Text(action.isOn ? "Start / Wake" : action.title)
+                Text(described.detailTitle)
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity).frame(height: 110)
@@ -378,7 +373,7 @@ struct ScheduleEditorSheet: View {
         .overlay { RoundedRectangle(cornerRadius: 15).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.09), lineWidth: selected ? 1.3 : 1) }
         .disabled(!session.allows(action))
         .opacity(session.allows(action) ? 1 : 0.45)
-        .accessibilityLabel(action.isOn ? "Wake or start up" : action.title)
+        .accessibilityLabel("\(action.cardTitle), \(described.detailTitle)")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .help(session.allows(action) ? action.title : "This recurring slot is already in use")
     }
@@ -390,10 +385,6 @@ struct ScheduleEditorSheet: View {
             let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
             rule.minutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
         })
-    }
-
-    private var presetBinding: Binding<ScheduleRepeatPreset> {
-        Binding(get: { repeatPreset }, set: selectPreset)
     }
 
     private func selectPreset(_ preset: ScheduleRepeatPreset) {
@@ -431,42 +422,6 @@ enum ScheduleRepeatPreset: String, CaseIterable, Identifiable {
     }
     init(days: Int) {
         self = Self.allCases.first { $0.days == days } ?? .custom
-    }
-}
-
-/// SwiftUI's macOS Menu sizes its click target to the title. A native pop-up
-/// button keeps this entire row clickable and retains standard keyboard use.
-private struct ScheduleRepeatPicker: NSViewRepresentable {
-    @Binding var selection: ScheduleRepeatPreset
-
-    func makeNSView(context: Context) -> NSPopUpButton {
-        let button = NSPopUpButton(frame: .zero, pullsDown: false)
-        button.addItems(withTitles: ScheduleRepeatPreset.allCases.map(\.rawValue))
-        button.isBordered = false
-        (button.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
-        button.font = .systemFont(ofSize: 15)
-        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        button.setAccessibilityLabel("Repeat schedule")
-        button.target = context.coordinator
-        button.action = #selector(Coordinator.changed(_:))
-        return button
-    }
-
-    func updateNSView(_ button: NSPopUpButton, context: Context) {
-        context.coordinator.selection = $selection
-        button.selectItem(withTitle: selection.rawValue)
-        button.isEnabled = context.environment.isEnabled
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
-
-    @MainActor final class Coordinator: NSObject {
-        var selection: Binding<ScheduleRepeatPreset>
-        init(selection: Binding<ScheduleRepeatPreset>) { self.selection = selection }
-        @objc func changed(_ sender: NSPopUpButton) {
-            guard let title = sender.titleOfSelectedItem, let preset = ScheduleRepeatPreset(rawValue: title) else { return }
-            selection.wrappedValue = preset
-        }
     }
 }
 
@@ -579,12 +534,16 @@ private struct ScheduleHelpSheet: View {
 
 private extension RepeatingPowerSchedule.Action {
     var cardTitle: String { isOn ? "Wake" : title }
+    /// What the action does, under its title on cards and tiles. Never the
+    /// title again.
     var detailTitle: String {
         switch self {
-        case .wake: return "Wake from Sleep"
-        case .wakeorpoweron: return "Start Up or Wake"
-        case .poweron: return "Power On"
-        default: return title
+        case .wake: return "Wake from sleep"
+        case .wakeorpoweron: return "Start up or wake"
+        case .poweron: return "Start up"
+        case .sleep: return "Put the Mac to sleep"
+        case .restart: return "Restart the Mac"
+        case .shutdown: return "Turn the Mac off"
         }
     }
     var scheduleColor: Color {

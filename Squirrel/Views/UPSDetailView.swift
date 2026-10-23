@@ -62,7 +62,8 @@ struct UPSDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            // One gap between every card.
+            VStack(spacing: 12) {
                 VStack(spacing: 0) {
                     UPSIdentityHeader(device: device, state: state, reading: reading)
                         .padding(.horizontal, 12)
@@ -86,11 +87,9 @@ struct UPSDetailView: View {
                     }
                 }
                 .dashboardCard()
-                .padding(.bottom, 9)
 
                 MacProtectionSection(device: device)
                 DashboardPowerManagementSection(service: appModel.powerSchedule)
-                    .padding(.bottom, 16)
                 technicalSection
             }
             .padding(.horizontal, 22)
@@ -410,12 +409,18 @@ private struct UPSLoadGauge: View {
     var body: some View {
         ProgressView(value: Double(percentage ?? 0), total: 100)
             .progressViewStyle(UPSLoadRingStyle(tint: tint))
-            .frame(width: 96, height: 96)
+            .frame(width: 104, height: 104)
             .overlay {
-                Group {
-                    if let power {
-                        Text(power)
+                // The percentage the arc shows, with the power it represents
+                // beneath it; either alone when the UPS reports only one.
+                VStack(spacing: 1) {
+                    if let primary = percentage.map({ "\($0)%" }) ?? power {
+                        Text(primary)
                             .font(.system(size: 24, weight: .semibold))
+                        if percentage != nil, let power {
+                            Text(power)
+                                .foregroundStyle(DashboardPalette.secondary)
+                        }
                     } else {
                         Text("Unavailable")
                             .font(.system(size: 12))
@@ -447,13 +452,13 @@ private struct UPSLoadRingStyle: ProgressViewStyle {
     func makeBody(configuration: Configuration) -> some View {
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.06), lineWidth: 4)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 6)
             Circle()
                 .trim(from: 0, to: configuration.fractionCompleted ?? 0)
-                .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .padding(2)
+        .padding(3)
     }
 }
 

@@ -84,19 +84,24 @@ enum MenuBarPresentation {
         return rows
     }
 
-    /// "Mac protected" only when Mac Protection says so: a connected UPS is
-    /// not enough on its own.
+    /// The macOS connection as one menu line: the Personal Hotspot symbol
+    /// while macOS has the UPS, slashed while it doesn't. Green "Connected to
+    /// macOS" only when the status is active: a reachable UPS is not enough.
     static func protectionLine(for status: MacProtectionStatus) -> StatusLine {
-        switch status.level {
-        case .active:
-            return StatusLine(title: "Mac protected", symbol: "checkmark.shield.fill", tone: .positive)
-        case .attention:
-            return StatusLine(title: "Mac protection: \(status.title)", symbol: "exclamationmark.shield.fill", tone: .caution)
-        case .checking:
-            return StatusLine(title: "Checking Mac protection…", symbol: "shield", tone: .neutral)
-        case .inactive:
-            return StatusLine(title: "Mac protection: \(status.title)", symbol: "shield.slash", tone: .neutral)
+        let symbol = status.isConnected || status.level == .checking ? "personalhotspot" : disconnectedSymbol
+        let tone: Tone = switch status.level {
+        case .active: .positive
+        case .attention: .caution
+        case .notShared, .inactive, .checking: .neutral
         }
+        return StatusLine(title: status.summary, symbol: symbol, tone: tone)
+    }
+
+    /// `personalhotspot.slash` is macOS 15+; earlier systems show the plain
+    /// symbol, and the grey or orange tint and the words carry the state.
+    private static var disconnectedSymbol: String {
+        if #available(macOS 15, *) { return "personalhotspot.slash" }
+        return "personalhotspot"
     }
 
     static func statusPhrase(for status: UPSStatusFlags) -> String {

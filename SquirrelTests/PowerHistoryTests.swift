@@ -125,6 +125,14 @@ final class MacProtectionStatusTests: XCTestCase {
         XCTAssertEqual(evaluate(.disconnected("gone"), advice()).level, .attention)
     }
 
+    /// Connected follows macOS seeing the UPS, even while a rule is missing.
+    func testConnectedMeansMacOSSeesTheUPS() {
+        XCTAssertTrue(evaluate(.published(entry), advice()).isConnected)
+        XCTAssertTrue(evaluate(.published(entry), advice(level: nil)).isConnected)
+        XCTAssertFalse(evaluate(.monitoringOnly, advice()).isConnected)
+        XCTAssertFalse(evaluate(.disconnected("gone"), advice()).isConnected)
+    }
+
     func testUnreadableRulesAreNotReportedAsActive() {
         XCTAssertEqual(evaluate(.published(entry), PowerProfileAdvisor.Advice()).level, .attention)
     }

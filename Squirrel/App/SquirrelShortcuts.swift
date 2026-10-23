@@ -53,7 +53,7 @@ struct PauseSquirrelIntent: AppIntent {
 
 struct ResumeSquirrelIntent: AppIntent {
     static let title: LocalizedStringResource = "Resume Squirrel"
-    static let description = IntentDescription("Resumes monitoring and presents the UPS to macOS again.")
+    static let description = IntentDescription("Resumes monitoring and shares the UPS with macOS again.")
     static let openAppWhenRun = false
 
     func perform() async throws -> some IntentResult & ProvidesDialog {

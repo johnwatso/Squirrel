@@ -161,13 +161,18 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertEqual(MenuBarPresentation.powerStatus(for: .connecting).symbol, "questionmark.circle")
     }
 
-    /// Only an active Mac Protection status may say the Mac is protected.
-    func testProtectionLineClaimsProtectionOnlyWhenActive() {
-        let active = MacProtectionStatus(level: .active, title: "Recognised by macOS")
-        XCTAssertEqual(MenuBarPresentation.protectionLine(for: active), .init(title: "Mac protected", symbol: "checkmark.shield.fill", tone: .positive))
-        let attention = MacProtectionStatus(level: .attention, title: "Not Detected")
-        XCTAssertEqual(MenuBarPresentation.protectionLine(for: attention).title, "Mac protection: Not Detected")
-        XCTAssertEqual(MenuBarPresentation.protectionLine(for: attention).tone, .caution)
-        XCTAssertEqual(MenuBarPresentation.protectionLine(for: MacProtectionStatus(level: .checking, title: "Checking…")).tone, .neutral)
+    /// Only an active status may be green; anything else is amber or grey.
+    /// The hotspot is slashed whenever macOS doesn't have the UPS.
+    func testConnectionLineIsGreenOnlyWhenActive() {
+        let active = MacProtectionStatus(level: .active, title: "Connected", summary: "Connected to macOS", isConnected: true)
+        XCTAssertEqual(MenuBarPresentation.protectionLine(for: active), .init(title: "Connected to macOS", symbol: "personalhotspot", tone: .positive))
+        let noRule = MacProtectionStatus(level: .attention, title: "No Shutdown Rule", summary: "Connected · no shutdown rule", isConnected: true)
+        XCTAssertEqual(MenuBarPresentation.protectionLine(for: noRule), .init(title: "Connected · no shutdown rule", symbol: "personalhotspot", tone: .caution))
+        let unseen = MacProtectionStatus(level: .attention, title: "Not Detected", summary: "macOS can't see this UPS")
+        XCTAssertEqual(MenuBarPresentation.protectionLine(for: unseen), .init(title: "macOS can't see this UPS", symbol: "personalhotspot.slash", tone: .caution))
+        let notShared = MacProtectionStatus(level: .notShared, title: "Off", summary: "Not shared with macOS")
+        XCTAssertEqual(MenuBarPresentation.protectionLine(for: notShared), .init(title: "Not shared with macOS", symbol: "personalhotspot.slash", tone: .neutral))
+        let checking = MacProtectionStatus(level: .checking, title: "Checking…", summary: "Checking macOS connection…")
+        XCTAssertEqual(MenuBarPresentation.protectionLine(for: checking), .init(title: "Checking macOS connection…", symbol: "personalhotspot", tone: .neutral))
     }
 }
