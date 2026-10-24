@@ -5,16 +5,14 @@ import SquirrelCore
 /// kept out of the views so it can be reasoned about (and tested) on its own.
 enum MenuBarPresentation {
     /// One-line summary: "Running on battery · 87% · 28 min left".
-    static func summary(for state: UPSConnectionState) -> String {
+    static func summary(for state: UPSConnectionState, isPaused: Bool = false) -> String {
         switch state {
         case .online(let reading):
             return UPSStatusPresentation.summary(for: reading)
         case .failed(let message):
             return message
-        case .connecting:
-            return "Connecting…"
-        case .idle:
-            return "Not monitoring"
+        case .connecting, .idle:
+            return UPSAppearance.shortStatus(for: state, isPaused: isPaused)
         }
     }
 
@@ -37,7 +35,7 @@ enum MenuBarPresentation {
     /// "On mains power" with a green bolt, "Low battery" with a red warning,
     /// and so on. Severity comes from the UPS's own flags, so the menu never
     /// invents its own idea of a low battery.
-    static func powerStatus(for state: UPSConnectionState) -> StatusLine {
+    static func powerStatus(for state: UPSConnectionState, isPaused: Bool = false) -> StatusLine {
         switch state {
         case .online(let reading):
             let tone: Tone = switch UPSStatusPresentation.severity(for: reading.status) {
@@ -48,11 +46,11 @@ enum MenuBarPresentation {
             let symbol = tone == .critical ? "exclamationmark.triangle.fill" : symbolName(for: state)
             return StatusLine(title: UPSStatusPresentation.headline(for: reading.status), symbol: symbol, tone: tone)
         case .failed:
-            return StatusLine(title: "UPS disconnected", symbol: "bolt.slash.fill", tone: .neutral)
+            return StatusLine(title: UPSAppearance.shortStatus(for: state), symbol: "bolt.slash.fill", tone: .neutral)
         case .connecting:
-            return StatusLine(title: "Connecting…", symbol: "questionmark.circle", tone: .neutral)
+            return StatusLine(title: UPSAppearance.shortStatus(for: state), symbol: "questionmark.circle", tone: .neutral)
         case .idle:
-            return StatusLine(title: "Not monitoring", symbol: "pause.circle", tone: .neutral)
+            return StatusLine(title: UPSAppearance.shortStatus(for: state, isPaused: isPaused), symbol: "pause.circle", tone: .neutral)
         }
     }
 

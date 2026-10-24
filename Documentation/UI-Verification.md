@@ -170,3 +170,20 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
   shows the grey "Not shared with macOS" line instead of nothing.
 - Debug tests: 134 passed. The dashboard and menu were captured on the
   isolated copy with sharing off. The schedule sheet was not captured.
+- Measurement row: battery, runtime and load are centred columns, battery and
+  runtime centre on the load ring, and the dividers run the row's height.
+- Edit Schedule… is a standard push button, like Share with macOS.
+- The UPS selector sizes to the name (140 pt minimum, truncating past 240 pt,
+  or 150 pt in narrow windows). Manage UPS… lives only in the selector, as the
+  reference layout specifies, not also in the ⋯ menu.
+- One vocabulary for Squirrel's link to a UPS everywhere it appears:
+  Connecting…, Not connected, Paused, Not monitoring.
+- The Power Schedule sheet explains the two-slot limit once, behind its help
+  button; the info box that repeated it is gone.
+- Removed the unused `PowerManagementSection`.
+- Text sizes come from `SquirrelFont`, a named scale at the existing sizes.
+  macOS text styles were not used because they are fixed sizes that would
+  shrink the 14 pt reference layout. The dashboard capture was pixel-identical
+  before and after. The onboarding "Couldn't connect" title moved from 24 to
+  26 pt to match the assistant's other titles.
+- Debug tests: 136 passed.

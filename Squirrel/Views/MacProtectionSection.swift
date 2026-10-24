@@ -125,7 +125,7 @@ struct MacProtectionSection: View {
                         Circle().fill(status.tint).frame(width: 9, height: 9)
                         Text(status.title).foregroundStyle(DashboardPalette.secondary)
                     }
-                    .font(.system(size: 14))
+                    .font(SquirrelFont.body)
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showingProtectionDetails) {

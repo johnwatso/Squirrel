@@ -15,7 +15,7 @@ struct UPSDevicesView: View {
                         HStack {
                             Text(device.displayName).font(.headline)
                             Spacer()
-                            StatusBadge(title: UPSAppearance.shortStatus(for: monitor.state(for: device)), tint: UPSAppearance.tint(for: monitor.state(for: device)))
+                            StatusBadge(title: UPSAppearance.shortStatus(for: monitor.state(for: device), isPaused: monitor.isPaused), tint: UPSAppearance.tint(for: monitor.state(for: device)))
                         }
                         Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
                             .font(.callout).foregroundStyle(.secondary)

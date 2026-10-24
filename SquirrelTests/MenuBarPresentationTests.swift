@@ -175,4 +175,14 @@ final class MenuBarPresentationTests: XCTestCase {
         let checking = MacProtectionStatus(level: .checking, title: "Checking…", summary: "Checking macOS connection…")
         XCTAssertEqual(MenuBarPresentation.protectionLine(for: checking), .init(title: "Checking macOS connection…", symbol: "personalhotspot", tone: .neutral))
     }
+
+    /// The menu and the dashboard describe a lost or paused UPS in the same words.
+    func testDisconnectedStatesShareOneVocabulary() {
+        XCTAssertEqual(MenuBarPresentation.powerStatus(for: .failed("No route to host")).title, "Not connected")
+        XCTAssertEqual(UPSAppearance.shortStatus(for: .failed("No route to host")), "Not connected")
+        XCTAssertEqual(MenuBarPresentation.powerStatus(for: .idle, isPaused: true).title, "Paused")
+        XCTAssertEqual(UPSAppearance.shortStatus(for: .idle, isPaused: true), "Paused")
+        XCTAssertEqual(MenuBarPresentation.powerStatus(for: .idle).title, "Not monitoring")
+        XCTAssertEqual(MenuBarPresentation.summary(for: .connecting), "Connecting…")
+    }
 }

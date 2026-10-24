@@ -129,12 +129,18 @@ struct UPSManagementView: View {
                 HStack(spacing: 10) {
                     Circle().fill(selectedDevice.map { UPSAppearance.tint(for: monitor.state(for: $0)) } ?? .secondary)
                         .frame(width: 10, height: 10)
-                    Text(selectedDevice?.displayName ?? "UPS").lineLimit(1)
+                    // Sized to the name, truncating only past a cap that
+                    // keeps the toolbar's other buttons in view.
+                    Text(selectedDevice?.displayName ?? "UPS")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: dashboardWidth < 540 ? 150 : 240, alignment: .leading)
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
                 }
-                .font(.system(size: 14))
+                .fixedSize()
+                .font(SquirrelFont.body)
                 .padding(.horizontal, 12)
-                .frame(width: dashboardWidth < 540 ? 140 : 158, height: 35)
+                .frame(minWidth: 140, minHeight: 35, maxHeight: 35)
                 .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
@@ -159,7 +165,7 @@ struct UPSManagementView: View {
                     }
                     if let device = selectedDevice { deviceActions(for: device) }
                     Divider()
-                    Button("Manage UPS…") { showingDevices = true }
+                    // Manage UPS… lives in the UPS selector, beside Add UPS….
                     Button("Settings…") { MenuBarMenu.openSettings() }
                 } label: { Image(systemName: "ellipsis.circle").font(.system(size: 18)) }
                 .menuStyle(.borderlessButton)
@@ -192,7 +198,7 @@ struct UPSManagementView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(device.displayName).foregroundStyle(.primary)
                             Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .font(SquirrelFont.footnote).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -216,7 +222,7 @@ struct UPSManagementView: View {
                 .buttonStyle(.plain)
                 .padding(.vertical, 5)
         }
-        .font(.system(size: 14))
+        .font(SquirrelFont.body)
         .padding(16)
         .frame(width: 262)
     }

@@ -24,6 +24,7 @@
 		3248A79AF5B97130DA3394B2 /* MenuBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2FCC99460C81D248464E2DE /* MenuBarMenu.swift */; };
 		3716C8E6C37EF546CCD63D8D /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B0604D0A71E21E4AA834F5B8 /* Sparkle */; };
 		37252601274D3B39255DE0CB /* squirrelctl in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 6952B14DB4C594A2F74AE327 /* squirrelctl */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3ADABC02F7666D993E41E14F /* SquirrelFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0581E8B06BC85D595ED96430 /* SquirrelFont.swift */; };
 		3B7F98FC573AED6866C670A0 /* SystemPowerSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D9ED1BE19DD453E411BB61 /* SystemPowerSources.swift */; };
 		40B4BE4FB6E7F93F111DBE43 /* NUTDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607B45A149272D7305FDF7E6 /* NUTDiscovery.swift */; };
 		4AB8906679CDCF456A3BAA61 /* SleepAssertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A258827873DB0F3EA66B799 /* SleepAssertionService.swift */; };
@@ -124,6 +125,7 @@
 /* Begin PBXFileReference section */
 		024ECFA1E1C6A97C7F46D506 /* PowerSourcePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerSourcePublisher.swift; sourceTree = "<group>"; };
 		056CED33FD01B6BED72CAFD0 /* MenuBarPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPresentationTests.swift; sourceTree = "<group>"; };
+		0581E8B06BC85D595ED96430 /* SquirrelFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquirrelFont.swift; sourceTree = "<group>"; };
 		05EF818CB4ABFB4171DD7BD6 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		095160C9CF30539EE17B2DA9 /* PowerSourceSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerSourceSnapshot.swift; sourceTree = "<group>"; };
 		0A258827873DB0F3EA66B799 /* SleepAssertionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepAssertionService.swift; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 				6B1AECDD06F9FCCA443B1278 /* PowerHistoryView.swift */,
 				D1CA7CD40844AC3B8C1C2C86 /* PowerScheduleView.swift */,
 				C2F5AC8DFC68074078F46EE5 /* PreferencesView.swift */,
+				0581E8B06BC85D595ED96430 /* SquirrelFont.swift */,
 				35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */,
 				7D53E073DBB3A4AB7FE75894 /* UPSDevicesView.swift */,
 				9A8527D868EDF54872DC3B28 /* UPSIllustration.swift */,
@@ -569,6 +572,7 @@
 				150B4F91223D8B8E42065BEF /* SettingsStore.swift in Sources */,
 				4AB8906679CDCF456A3BAA61 /* SleepAssertionService.swift in Sources */,
 				A0EDA755E61C1241A3A4C74F /* SquirrelApp.swift in Sources */,
+				3ADABC02F7666D993E41E14F /* SquirrelFont.swift in Sources */,
 				16B70999280CBB352E6625F7 /* SquirrelShortcuts.swift in Sources */,
 				040E1B9DB29209758CBD6709 /* UPSDetailView.swift in Sources */,
 				721DB6149E4E614E3F403FEC /* UPSDevice.swift in Sources */,

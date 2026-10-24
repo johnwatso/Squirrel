@@ -11,9 +11,9 @@ struct PowerScheduleView: View {
         VStack(alignment: .leading, spacing: 26) {
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Power Schedule").font(.system(size: 28, weight: .bold))
+                    Text("Power Schedule").font(SquirrelFont.sheetTitle)
                     Text("Automatically manage when your Mac starts, sleeps or shuts down.")
-                        .font(.system(size: 16)).foregroundStyle(.secondary)
+                        .font(SquirrelFont.intro).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(3).frame(maxWidth: 450, alignment: .leading)
                 }
@@ -32,7 +32,7 @@ struct PowerScheduleView: View {
                 if service.schedules.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "clock").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-                        Text("No schedules yet").font(.system(size: 17, weight: .semibold))
+                        Text("No schedules yet").font(SquirrelFont.sectionTitle)
                         Text("Give your Mac a daily routine.").foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 26)
@@ -54,7 +54,7 @@ struct PowerScheduleView: View {
 
                 Button { openEditor(nil) } label: {
                     Label("Add Schedule", systemImage: "plus.circle")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(SquirrelFont.prominentAction)
                         .frame(maxWidth: .infinity).frame(height: 62)
                         .contentShape(RoundedRectangle(cornerRadius: 16))
                 }
@@ -65,7 +65,7 @@ struct PowerScheduleView: View {
                 .help(service.schedules.count >= 2 ? "Both macOS recurring slots are in use. Edit an existing schedule to change its action." : "Add a power schedule")
                 if service.schedules.count >= 2 {
                     Text("Both recurring slots are in use. Edit a schedule to change its action.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                        .font(SquirrelFont.footnote).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -75,9 +75,8 @@ struct PowerScheduleView: View {
                 ScheduleErrorMessage(message: error)
             }
 
-            ScheduleInformation(title: "macOS supports two recurring power schedules.",
-                detail: "One startup/wake and one sleep, restart or shutdown rule. Changes may require administrator approval.",
-                learnMore: { showingHelp = true })
+            // The two-slot limit is explained once, behind the help button,
+            // and noted above only when both slots are in use.
 
             HStack {
                 if service.isApplying {
@@ -174,13 +173,13 @@ private struct ScheduleCard: View {
                 .background(rule.action.scheduleColor.opacity(0.11), in: RoundedRectangle(cornerRadius: 13))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(rule.action.cardTitle).font(.system(size: 17, weight: .semibold))
-                Text(rule.action.detailTitle).font(.system(size: 14)).foregroundStyle(.secondary)
+                Text(rule.action.cardTitle).font(SquirrelFont.sectionTitle)
+                Text(rule.action.detailTitle).font(SquirrelFont.body).foregroundStyle(.secondary)
             }
             .frame(width: 155, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
-                Text(rule.timeText).font(.system(size: 17, weight: .semibold)).monospacedDigit()
-                Text(rule.recurrenceText).font(.system(size: 14)).foregroundStyle(.secondary)
+                Text(rule.timeText).font(SquirrelFont.sectionTitle).monospacedDigit()
+                Text(rule.recurrenceText).font(SquirrelFont.body).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -235,7 +234,7 @@ struct ScheduleEditorSheet: View {
             .controlSize(.large)
             .overlay {
                 Text(session.original == nil ? "Add Schedule" : "Edit Schedule")
-                    .font(.system(size: 17, weight: .semibold)).allowsHitTesting(false)
+                    .font(SquirrelFont.sectionTitle).allowsHitTesting(false)
             }
             .padding(.horizontal, 30).padding(.vertical, 20)
             .disabled(service.isApplying)
@@ -256,11 +255,11 @@ struct ScheduleEditorSheet: View {
                                 Text("Wake from sleep only").tag(RepeatingPowerSchedule.Action.wake)
                                 Text("Start up only").tag(RepeatingPowerSchedule.Action.poweron)
                             }
-                            .font(.system(size: 13))
+                            .font(SquirrelFont.caption)
                         }
                         if session.schedules.contains(where: { $0.id != session.original?.id }) {
                             Text("An existing schedule uses the other recurring slot. Edit it to change that action.")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .font(SquirrelFont.footnote).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -279,7 +278,7 @@ struct ScheduleEditorSheet: View {
                         HStack(spacing: 10) {
                             ForEach(ScheduleRepeatPreset.allCases) { preset in
                                 Button { selectPreset(preset) } label: {
-                                    Text(preset.rawValue).font(.system(size: 14))
+                                    Text(preset.rawValue).font(SquirrelFont.body)
                                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                                         .contentShape(Capsule())
                                 }
@@ -310,7 +309,7 @@ struct ScheduleEditorSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             sectionTitle("Enabled")
                             Text(rule.enabled ? "Schedule is active and will run at the selected time." : "Saved in Squirrel. Enable it when you’re ready.")
-                                .font(.system(size: 14)).foregroundStyle(.secondary)
+                                .font(SquirrelFont.body).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 0)
@@ -346,7 +345,7 @@ struct ScheduleEditorSheet: View {
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.system(size: 17, weight: .semibold))
+        Text(text).font(SquirrelFont.sectionTitle)
     }
 
     private func actionTile(_ action: RepeatingPowerSchedule.Action) -> some View {
@@ -361,9 +360,9 @@ struct ScheduleEditorSheet: View {
             VStack(spacing: 6) {
                 Image(systemName: action.symbol).font(.system(size: 29, weight: .medium))
                     .foregroundStyle(action.scheduleColor).frame(height: 33)
-                Text(action.cardTitle).font(.system(size: 14, weight: .semibold))
+                Text(action.cardTitle).font(SquirrelFont.bodyEmphasised)
                 Text(described.detailTitle)
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                    .font(SquirrelFont.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity).frame(height: 110)
             .contentShape(RoundedRectangle(cornerRadius: 15))
@@ -464,7 +463,7 @@ private struct ScheduleInformation: View {
                 Text(detail).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Button("Learn more…", action: learnMore).buttonStyle(.link)
             }
-            .font(.system(size: 13))
+            .font(SquirrelFont.caption)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(22)
@@ -517,7 +516,7 @@ private struct ScheduleHelpSheet: View {
                         }
                     }
                 }
-                .font(.system(size: 14)).padding(.trailing, 8)
+                .font(SquirrelFont.body).padding(.trailing, 8)
             }
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
         }
@@ -560,36 +559,5 @@ private extension View {
     func scheduleSurface() -> some View {
         background(Color(nsColor: .controlBackgroundColor).opacity(0.40), in: RoundedRectangle(cornerRadius: 16))
             .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.08)) }
-    }
-}
-
-struct PowerManagementSection: View {
-    @EnvironmentObject private var appModel: AppModel
-    @ObservedObject var service: PowerScheduleService
-    @State private var showingSchedule = false
-
-    var body: some View {
-        Section("Power Management") {
-            LabeledContent("Restart after power failure", value: restartDescription)
-            LabeledContent("Scheduled startup/wake", value: summary(isOn: true))
-            LabeledContent("Scheduled sleep/restart/shutdown", value: summary(isOn: false))
-            HStack {
-                Spacer()
-                Button("Edit Schedule…") { showingSchedule = true }
-            }
-        }
-        .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: service) }
-        .onAppear { service.refresh() }
-    }
-
-    private func summary(isOn: Bool) -> String {
-        guard service.readError == nil else { return "Unavailable" }
-        guard let rule = service.schedules.first(where: { $0.action.isOn == isOn }) else { return "Not scheduled" }
-        return rule.action.title + " · " + rule.summary
-    }
-    private var restartDescription: String {
-        let advice = appModel.powerProfileAdvice
-        guard advice.autoRestartSupported == true, let enabled = advice.autoRestartEnabled else { return "Unavailable" }
-        return enabled ? "On" : "Off"
     }
 }

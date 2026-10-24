@@ -80,7 +80,7 @@ struct ConnectionAssistantView: View {
                 .frame(width: 104, height: 104)
 
             Text("Connect your UPS")
-                .font(.system(size: 26, weight: .bold))
+                .font(SquirrelFont.assistantTitle)
                 .accessibilityAddTraits(.isHeader)
 
             Text("Squirrel connects to your network UPS and makes it available to macOS, just like a USB-connected UPS.")
@@ -545,7 +545,7 @@ struct ConnectionAssistantView: View {
             VStack(spacing: 12) {
                 resultGlyph(symbol: "xmark", tint: .red)
                 VStack(spacing: 4) {
-                    Text("Couldn't connect").font(.system(size: 24, weight: .bold))
+                    Text("Couldn't connect").font(SquirrelFont.assistantTitle)
                     Text(message)
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -582,7 +582,7 @@ struct ConnectionAssistantView: View {
             resultGlyph(symbol: symbol, tint: kind.tint)
 
             VStack(spacing: 4) {
-                Text(title).font(.system(size: 26, weight: .bold))
+                Text(title).font(SquirrelFont.assistantTitle)
                 Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)

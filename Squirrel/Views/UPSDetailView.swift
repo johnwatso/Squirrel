@@ -21,23 +21,16 @@ enum UPSAppearance {
         }
     }
 
-    /// "Connected · On mains power" — the connection and the UPS's own state
-    /// are two different things and both belong here.
-    static func statusLine(for state: UPSConnectionState) -> String {
-        switch state {
-        case .online(let reading): return "Connected · \(UPSStatusPresentation.headline(for: reading.status))"
-        case .connecting: return "Connecting…"
-        case .failed: return "Not connected"
-        case .idle: return "Not monitoring"
-        }
-    }
-
-    static func shortStatus(for state: UPSConnectionState) -> String {
+    /// The one vocabulary for Squirrel's link to a UPS, used by the menu,
+    /// the dashboard and the device list: the UPS's own headline while
+    /// connected, otherwise "Connecting…", "Not connected", "Paused" or
+    /// "Not monitoring".
+    static func shortStatus(for state: UPSConnectionState, isPaused: Bool = false) -> String {
         switch state {
         case .online(let reading): return UPSStatusPresentation.headline(for: reading.status)
         case .connecting: return "Connecting…"
         case .failed: return "Not connected"
-        case .idle: return "Not monitoring"
+        case .idle: return isPaused ? "Paused" : "Not monitoring"
         }
     }
 }
@@ -81,7 +74,7 @@ struct UPSDetailView: View {
                     if let trouble = troubleMessage {
                         Label(trouble.text, systemImage: trouble.symbol)
                             .foregroundStyle(trouble.tint)
-                            .font(.system(size: 14))
+                            .font(SquirrelFont.body)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(20)
                     }
@@ -97,7 +90,7 @@ struct UPSDetailView: View {
             .padding(.bottom, 33)
         }
         .background(DashboardPalette.background)
-        .font(.system(size: 14))
+        .font(SquirrelFont.body)
         .onAppear { appModel.refreshSystemPowerSource() }
     }
 
@@ -185,9 +178,7 @@ struct UPSDetailView: View {
     private var connectionDescription: String {
         switch state {
         case .online: return "Connected"
-        case .connecting: return "Connecting…"
-        case .failed: return "Not connected"
-        case .idle: return monitor.isPaused ? "Paused" : "Not monitoring"
+        case .connecting, .failed, .idle: return UPSAppearance.shortStatus(for: state, isPaused: monitor.isPaused)
         }
     }
 
@@ -234,7 +225,7 @@ private struct UPSIdentityHeader: View {
             }
             VStack(alignment: .leading, spacing: 7) {
                 Text(device.displayName)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(SquirrelFont.deviceName)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .accessibilityAddTraits(.isHeader)
@@ -256,7 +247,7 @@ private struct UPSIdentityHeader: View {
 
     /// The headline plus whatever else the UPS is saying at the same time.
     private var statusText: String {
-        guard let reading = state.reading else { return UPSAppearance.shortStatus(for: state) }
+        guard let reading = state.reading else { return UPSAppearance.shortStatus(for: state, isPaused: appModel.monitor.isPaused) }
         let conditions = UPSStatusPresentation.conditions(for: reading.status)
         return ([UPSStatusPresentation.headline(for: reading.status)] + conditions).joined(separator: " · ")
     }
@@ -308,30 +299,41 @@ private struct UPSMeasurements: View {
     private var charge: Int? { reading.batteryCharge.flatMap { (0...100).contains($0) ? $0 : nil } }
     private var runtime: Int? { reading.batteryRuntime.flatMap { $0 >= 0 ? $0 : nil } }
 
+    /// Three centred columns. The ring is the tallest, so battery and runtime
+    /// centre on it rather than leaving an empty band beneath them, and the
+    /// dividers run the height of the row.
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(spacing: 9) {
                 metric("Battery", charge.map { "\($0)%" })
                 if let charge {
-                    ProgressView(value: Double(charge), total: 100)
-                        .progressViewStyle(DashboardBatteryStyle(tint: batteryTint(charge: charge)))
-                        .frame(height: 10)
+                    // Occupies a caption line, like "At current load" beside
+                    // it, so both columns are the same height and their
+                    // labels line up.
+                    Text(" ").hidden()
+                        .frame(maxWidth: 150)
+                        .overlay {
+                            ProgressView(value: Double(charge), total: 100)
+                                .progressViewStyle(DashboardBatteryStyle(tint: batteryTint(charge: charge)))
+                                .frame(height: 10)
+                        }
                         .accessibilityHidden(true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
 
             columnDivider
 
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(spacing: 9) {
                 metric("Estimated runtime", runtime.map { UPSTelemetry.duration(seconds: $0) })
                 if runtime != nil {
                     Text(isLive ? "At current load" : "At last recorded load")
                         .foregroundStyle(DashboardPalette.secondary)
+                        .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
 
             columnDivider
 
@@ -346,13 +348,15 @@ private struct UPSMeasurements: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(isLive ? .primary : .secondary)
     }
 
     private var columnDivider: some View {
         Rectangle()
             .fill(Color.primary.opacity(0.055))
-            .frame(width: 1, height: 120)
+            .frame(width: 1)
+            .frame(maxHeight: .infinity)
             .accessibilityHidden(true)
     }
 
@@ -364,10 +368,10 @@ private struct UPSMeasurements: View {
     }
 
     private func metric(_ title: String, _ value: String?) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 4) {
             metricLabel(title)
             Text(value ?? "Unavailable")
-                .font(.system(size: 24, weight: .semibold))
+                .font(SquirrelFont.metric)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -416,14 +420,14 @@ private struct UPSLoadGauge: View {
                 VStack(spacing: 1) {
                     if let primary = percentage.map({ "\($0)%" }) ?? power {
                         Text(primary)
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(SquirrelFont.metric)
                         if percentage != nil, let power {
                             Text(power)
                                 .foregroundStyle(DashboardPalette.secondary)
                         }
                     } else {
                         Text("Unavailable")
-                            .font(.system(size: 12))
+                            .font(SquirrelFont.footnote)
                             .foregroundStyle(DashboardPalette.secondary)
                     }
                 }
@@ -497,7 +501,7 @@ private struct FreshnessLabel: View {
                     .frame(width: 6, height: 6)
                     .accessibilityHidden(true)
             }
-            .font(.system(size: 13))
+            .font(SquirrelFont.caption)
             .foregroundStyle(DashboardPalette.secondary)
             .monospacedDigit()
             .accessibilityElement(children: .combine)
@@ -574,7 +578,7 @@ struct DashboardSectionHeading<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 18)).frame(width: 20)
-            Text(title).font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
+            Text(title).font(SquirrelFont.cardHeading).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             trailing
         }
@@ -602,13 +606,8 @@ private struct DashboardPowerManagementSection: View {
             .dashboardCard(radius: 10)
             HStack {
                 Spacer()
+                // A standard push button, like "Share with macOS" above.
                 Button("Edit Schedule…") { showingSchedule = true }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.horizontal, 16)
-                    .frame(height: 32)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 7))
-                    .overlay { RoundedRectangle(cornerRadius: 7).strokeBorder(Color.accentColor.opacity(0.35)) }
             }
         }
         .padding(.horizontal, 20)

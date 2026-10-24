@@ -115,7 +115,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             button.title = ""
         }
         button.setAccessibilityLabel("Squirrel")
-        button.setAccessibilityValue(MenuBarPresentation.summary(for: state))
+        button.setAccessibilityValue(MenuBarPresentation.summary(for: state, isPaused: monitor.isPaused))
     }
 
     // MARK: - Menu contents
@@ -185,7 +185,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         let state = monitor.state(for: device)
         var entries: [MenuEntry] = [
             .row(id: "\(prefix).name", .heading(device.displayName), toolTip: device.displayName),
-            .row(id: "\(prefix).status", .status(MenuBarPresentation.powerStatus(for: state))),
+            .row(id: "\(prefix).status", .status(MenuBarPresentation.powerStatus(for: state, isPaused: monitor.isPaused))),
         ]
         for row in MenuBarPresentation.telemetryRows(for: state) {
             entries.append(.row(id: "\(prefix).\(row.label)", .telemetry(row)))
@@ -212,7 +212,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
     /// Additional UPSs: name and status, with the details a level down.
     private func otherDeviceEntry(_ device: UPSDevice) -> MenuEntry {
-        let status = MenuBarPresentation.powerStatus(for: monitor.state(for: device))
+        let status = MenuBarPresentation.powerStatus(for: monitor.state(for: device), isPaused: monitor.isPaused)
         var entry = MenuEntry(id: device.id.uuidString, title: "\(device.displayName) — \(status.title)")
         entry.submenu = summary(for: device, prefix: device.id.uuidString) + [
             .separator("\(device.id).history"),
