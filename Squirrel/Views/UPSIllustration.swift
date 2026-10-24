@@ -73,14 +73,19 @@ extension UPSDevice {
 
 /// A small vector drawing of the UPS. These are original drawings of each
 /// product's front, never vendor images, and deliberately carry no logos.
-/// Drawn at 115 × 88 and scaled to fit whatever frame it is given.
+/// Drawn at 115 × 88 and scaled to fit whatever frame it is given. In a
+/// tile (the picker, onboarding rows) it sits on a rounded well; standing
+/// alone (the dashboard header) it has no background.
 struct UPSDeviceIllustration: View {
     let kind: UPSIllustrationKind
     var cornerRadius: CGFloat = 14
+    var isTiled = true
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.primary.opacity(0.035))
+            if isTiled {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.primary.opacity(0.035))
+            }
             Canvas { context, size in
                 let scale = min(size.width / UPSDrawing.size.width, size.height / UPSDrawing.size.height)
                 var context = context

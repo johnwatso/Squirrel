@@ -208,8 +208,9 @@ private struct UPSIdentityHeader: View {
     var body: some View {
         HStack(spacing: 21) {
             Button { choosingPicture = true } label: {
-                UPSDeviceIllustration(kind: device.illustration(for: reading))
+                UPSDeviceIllustration(kind: device.illustration(for: reading), isTiled: false)
                     .frame(width: 115, height: 88)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Change Picture")

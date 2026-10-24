@@ -1,113 +1,110 @@
 {
-  "fill-specializations": [
+  "fill-specializations" : [
     {
-      "value": {
-        "linear-gradient": [
+      "value" : {
+        "linear-gradient" : [
           "display-p3:0.62000,0.79000,0.99000,1.00000",
           "display-p3:0.10000,0.28000,0.72000,1.00000"
         ]
       }
     },
     {
-      "appearance": "dark",
-      "value": {
-        "linear-gradient": [
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
           "display-p3:0.16000,0.17000,0.22000,1.00000",
           "display-p3:0.01500,0.01600,0.02800,1.00000"
         ]
       }
     }
   ],
-  "groups": [
+  "groups" : [
     {
-      "layers": [
+      "layers" : [
         {
-          "glass": false,
-          "hidden": false,
-          "image-name": "squirrel-bolt.png",
-          "name": "Bolt",
-          "opacity-specializations": [
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "squirrel-bolt.png",
+          "name" : "Bolt",
+          "opacity-specializations" : [
             {
-              "appearance": "tinted",
-              "value": 0
+              "appearance" : "tinted",
+              "value" : 0
             }
           ],
-          "position": {
-            "scale": 0.74,
-            "translation-in-points": [
+          "position" : {
+            "scale" : 0.74,
+            "translation-in-points" : [
               0,
               0
             ]
           }
         }
       ],
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 1.0
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 1
       },
-      "translucency": {
-        "enabled": false,
-        "value": 0.3
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.3
       }
     },
     {
-      "layers": [
+      "layers" : [
         {
-          "glass": false,
-          "hidden": false,
-          "image-name": "squirrel-mono.png",
-          "name": "Squirrel Mono",
-          "opacity-specializations": [
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "squirrel-mono.png",
+          "name" : "Squirrel Mono",
+          "opacity-specializations" : [
             {
-              "value": 0
+              "value" : 0
             },
             {
-              "appearance": "tinted",
-              "value": 1
+              "appearance" : "tinted",
+              "value" : 1
             }
           ],
-          "position": {
-            "scale": 0.74,
-            "translation-in-points": [
+          "position" : {
+            "scale" : 0.74,
+            "translation-in-points" : [
               0,
               0
             ]
           }
         },
         {
-          "glass": false,
-          "hidden": false,
-          "image-name": "289df51d-cacd-437b-9536-307c1fa5006d.png",
-          "name": "Squirrel Colour",
-          "opacity-specializations": [
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "289df51d-cacd-437b-9536-307c1fa5006d.png",
+          "name" : "Squirrel Colour",
+          "opacity-specializations" : [
             {
-              "appearance": "tinted",
-              "value": 0
+              "appearance" : "tinted",
+              "value" : 0
             }
           ],
-          "position": {
-            "scale": 0.74,
-            "translation-in-points": [
+          "position" : {
+            "scale" : 0.74,
+            "translation-in-points" : [
               0,
               0
             ]
           }
         }
       ],
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.5
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
       },
-      "translucency": {
-        "enabled": true,
-        "value": 0.3
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
       }
     }
   ],
-  "supported-platforms": {
-    "circles": [
-      "watchOS"
-    ],
-    "squares": "shared"
+  "supported-platforms" : {
+    "squares" : "shared"
   }
 }
