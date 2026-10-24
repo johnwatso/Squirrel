@@ -34,6 +34,18 @@ struct SquirrelApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.center)
 
+        Window("Connection", id: AppModel.connectionWindowID) {
+            UPSConnectionWindow()
+                .environmentObject(appModel)
+                .onAppear { appModel.setWindow(.connection, visible: true) }
+                .onDisappear {
+                    appModel.endEditingConnection()
+                    appModel.setWindow(.connection, visible: false)
+                }
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         Window("Squirrel", id: AppModel.manageWindowID) {
             UPSManagementView()
                 .environmentObject(appModel)
@@ -78,6 +90,12 @@ struct MenuBarLifecycle: View {
                 openWindow(id: AppModel.manageWindowID)
                 NSApp.activate(ignoringOtherApps: true)
                 appModel.shouldOpenManageWindow = false
+            }
+            .onReceive(appModel.$shouldOpenConnectionWindow) { shouldOpen in
+                guard shouldOpen else { return }
+                openWindow(id: AppModel.connectionWindowID)
+                NSApp.activate(ignoringOtherApps: true)
+                appModel.shouldOpenConnectionWindow = false
             }
             .onReceive(appModel.$shouldOpenAssistantWindow) { shouldOpen in
                 guard shouldOpen else { return }
@@ -187,5 +205,26 @@ private struct ConnectionAssistantWindow: View {
         NSApp.windows
             .first { $0.identifier?.rawValue.contains(AppModel.assistantWindowID) == true }?
             .close()
+    }
+}
+
+/// The editor has its own window and lifecycle, separate from the setup wizard.
+private struct UPSConnectionWindow: View {
+    @EnvironmentObject private var appModel: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Group {
+            if let editor = appModel.connectionEditor {
+                UPSConnectionView(editor: editor) {
+                    dismiss()
+                    appModel.endEditingConnection()
+                }
+                .id(editor.id)
+            } else {
+                Color.clear.frame(width: 500, height: 200)
+                    .onAppear { dismiss() }
+            }
+        }
     }
 }

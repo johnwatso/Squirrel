@@ -10,8 +10,7 @@ struct UPSManagementView: View {
     @EnvironmentObject private var monitor: UPSMonitor
 
     @State private var showingSchedule = false
-    @State private var showingUPSSelector = false
-    @State private var dashboardWidth: CGFloat = 682
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showingDevices = false
     @State private var selectedDeviceID: UPSDevice.ID?
     @State private var deviceToRemove: UPSDevice?
@@ -19,57 +18,19 @@ struct UPSManagementView: View {
     @State private var proposedName = ""
 
     var body: some View {
-        Group {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+        } detail: {
             if settings.devices.isEmpty {
                 noUPSState
+                    .frame(minWidth: 460)
+                    .navigationTitle("Squirrel")
             } else {
                 dashboard
             }
         }
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { dashboardWidth = geometry.size.width }
-                    .onChange(of: geometry.size.width) { dashboardWidth = $0 }
-            }
-        }
-        .accessibilityHidden(showingUPSSelector)
-        .overlay {
-            if showingUPSSelector {
-                Color.clear.contentShape(Rectangle())
-                    .onTapGesture { showingUPSSelector = false }
-            }
-        }
-        .overlay(alignment: .topTrailing) {
-            if showingUPSSelector {
-                upsSelector
-                    .background {
-                        Button("Dismiss UPS selector") { showingUPSSelector = false }
-                            .keyboardShortcut(.cancelAction)
-                            .opacity(0)
-                            .frame(width: 0, height: 0)
-                            .accessibilityHidden(true)
-                    }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.1)) }
-                    .overlay(alignment: .topLeading) {
-                        Path { path in
-                            path.move(to: CGPoint(x: 0, y: 8))
-                            path.addLine(to: CGPoint(x: 8, y: 0))
-                            path.addLine(to: CGPoint(x: 16, y: 8))
-                        }
-                        .fill(.regularMaterial)
-                        .frame(width: 16, height: 8)
-                        .offset(x: 48, y: -7)
-                    }
-                    .shadow(color: .black.opacity(0.18), radius: 14, y: 10)
-                    .padding(.trailing, 18)
-                    .padding(.top, 1)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Connected UPS")
-            }
-        }
-        .onExitCommand { showingUPSSelector = false }
+        .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
         .sheet(isPresented: $showingDevices) {
             UPSDevicesSheet()
@@ -114,117 +75,85 @@ struct UPSManagementView: View {
         .frame(minWidth: 460)
         .navigationTitle("Squirrel")
         .toolbar {
-            if #available(macOS 26.0, *) {
-                ToolbarItem(placement: .primaryAction) { dashboardToolbar.accessibilityElement(children: .contain).accessibilityLabel("Dashboard controls") }
-                    .sharedBackgroundVisibility(.hidden)
-            } else {
-                ToolbarItem(placement: .primaryAction) { dashboardToolbar.accessibilityElement(children: .contain).accessibilityLabel("Dashboard controls") }
-            }
-        }
-    }
-
-    private var dashboardToolbar: some View {
-        HStack(spacing: 0) {
-            Button { showingUPSSelector.toggle() } label: {
-                HStack(spacing: 10) {
-                    Circle().fill(selectedDevice.map { UPSAppearance.tint(for: monitor.state(for: $0)) } ?? .secondary)
-                        .frame(width: 10, height: 10)
-                    // Sized to the name, truncating only past a cap that
-                    // keeps the toolbar's other buttons in view.
-                    Text(selectedDevice?.displayName ?? "UPS")
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: dashboardWidth < 540 ? 150 : 240, alignment: .leading)
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
-                }
-                .fixedSize()
-                .font(SquirrelFont.body)
-                .padding(.horizontal, 12)
-                .frame(minWidth: 140, minHeight: 35, maxHeight: 35)
-                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-            .help("Choose a dashboard UPS; this does not change which UPS is shared with macOS")
-            Spacer().frame(width: dashboardWidth < 640 ? 8 : 54)
-            HStack(spacing: dashboardWidth < 540 ? 6 : 16) {
-                Button { showingSchedule = true } label: {
-                    Image(systemName: "clock").frame(width: 36, height: 35)
-                }
-                .help("Power Schedule")
-                .accessibilityLabel("Power Schedule")
-                Button { appModel.showHistory(for: selectedDevice) } label: {
-                    Image(systemName: "chart.xyaxis.line").frame(width: 36, height: 35)
-                }
-                .help("Power History")
-                .accessibilityLabel("Power History")
+            ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
+                    Button("Settings…") { MenuBarMenu.openSettings() }
+                    Button("Power Schedule…") { showingSchedule = true }
+                    Divider()
                     Button("Refresh") {
                         monitor.restart()
                         appModel.refreshPowerProfileAdvice()
                         appModel.powerSchedule.refresh()
                     }
                     if let device = selectedDevice { deviceActions(for: device) }
-                    Divider()
-                    // Manage UPS… lives in the UPS selector, beside Add UPS….
-                    Button("Settings…") { MenuBarMenu.openSettings() }
-                } label: { Image(systemName: "ellipsis.circle").font(.system(size: 18)) }
-                .menuStyle(.borderlessButton)
+                } label: {
+                    Label("UPS Settings and Actions", systemImage: "gearshape")
+                }
                 .menuIndicator(.hidden)
-                .frame(width: 36, height: 35)
-                .accessibilityLabel("Actions")
+                .help("UPS Settings and Actions")
+
+                Button { appModel.showHistory(for: selectedDevice) } label: {
+                    Label("Power History", systemImage: "clock.arrow.circlepath")
+                }
+                .help("Power History")
             }
-            .font(.system(size: 18))
-            .buttonStyle(.plain)
         }
     }
 
-    private var upsSelector: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Connected UPS")
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 10)
-            ForEach(settings.devices) { device in
-                Button {
-                    selectedDeviceID = device.id
-                    showingUPSSelector = false
-                } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(.green)
-                            .opacity(device.id == selectedDeviceID ? 1 : 0)
-                            .frame(width: 18)
-                        Circle().fill(UPSAppearance.tint(for: monitor.state(for: device)))
-                            .frame(width: 10, height: 10).padding(.top, 4)
+    private var sidebar: some View {
+        List(selection: $selectedDeviceID) {
+            Section("UPS Devices") {
+                ForEach(settings.devices) { device in
+                    HStack(spacing: 10) {
+                        Image(systemName: "bolt.batteryblock.fill")
+                            .font(.title3)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(device.displayName).foregroundStyle(.primary)
-                            Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
-                                .font(SquirrelFont.footnote).foregroundStyle(.secondary)
+                            Text(device.displayName)
+                                .fontWeight(.medium)
+                                .lineLimit(1)
+                            Text(UPSAppearance.shortStatus(for: monitor.state(for: device), isPaused: monitor.isPaused))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                         Spacer(minLength: 0)
+                        Circle()
+                            .fill(UPSAppearance.tint(for: monitor.state(for: device)))
+                            .frame(width: 7, height: 7)
+                            .accessibilityHidden(true)
                     }
-                    .contentShape(Rectangle())
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 4)
+                    .tag(device.id)
+                    .help(device.displayName)
+                    .accessibilityElement(children: .combine)
+                    .contextMenu { deviceActions(for: device) }
                 }
-                .buttonStyle(.plain)
             }
-            DashboardDivider().padding(.vertical, 8)
-            Button {
-                showingUPSSelector = false
-                showingDevices = true
-            } label: { Label("Manage UPS…", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading) }
-                .buttonStyle(.plain)
-                .padding(.vertical, 5)
-            DashboardDivider().padding(.vertical, 8)
-            Button {
-                showingUPSSelector = false
-                appModel.beginConnectionAssistant()
-            } label: { Label("Add UPS…", systemImage: "plus").frame(maxWidth: .infinity, alignment: .leading) }
-                .buttonStyle(.plain)
-                .padding(.vertical, 5)
         }
-        .font(SquirrelFont.body)
-        .padding(16)
-        .frame(width: 262)
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                Divider()
+                HStack(spacing: 14) {
+                    Button { appModel.beginConnectionAssistant() } label: {
+                        Label("Add UPS…", systemImage: "plus")
+                            .labelStyle(.iconOnly)
+                    }
+                    .help("Add UPS")
+                    Button { deviceToRemove = selectedDevice } label: {
+                        Label("Remove UPS…", systemImage: "minus")
+                            .labelStyle(.iconOnly)
+                    }
+                    .disabled(selectedDevice == nil)
+                    .help("Remove selected UPS")
+                    Spacer(minLength: 4)
+                    Button("Manage…") { showingDevices = true }
+                        .help("Manage UPS devices")
+                }
+                .buttonStyle(.borderless)
+                .padding(12)
+            }
+        }
     }
 
     @ViewBuilder
@@ -240,7 +169,7 @@ struct UPSManagementView: View {
                 Text(kind.title).tag(UPSIllustrationKind?.some(kind))
             }
         }
-        Button("Change Connection…") { appModel.beginConnectionAssistant(editing: device) }
+        Button("Connection…") { appModel.editConnection(device) }
         if settings.devices.count > 1, !device.publishesToSystem {
             Button("Share with macOS") { appModel.useForMacProtection(device) }
         }

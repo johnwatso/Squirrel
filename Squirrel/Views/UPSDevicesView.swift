@@ -20,7 +20,7 @@ struct UPSDevicesView: View {
                         Text(device.publishesToSystem ? (settings.preferences.publishPowerSource ? "Shared with macOS" : "Sharing off") : "Monitoring only")
                             .font(.callout).foregroundStyle(.secondary)
                         HStack {
-                            Button("Connection…") { appModel.beginConnectionAssistant(editing: device) }
+                            Button("Connection…") { appModel.editConnection(device) }
                             if !device.publishesToSystem {
                                 Button("Share with macOS") { appModel.useForMacProtection(device) }
                             }

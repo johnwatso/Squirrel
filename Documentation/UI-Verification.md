@@ -187,3 +187,118 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
   before and after. The onboarding "Couldn't connect" title moved from 24 to
   26 pt to match the assistant's other titles.
 - Debug tests: 136 passed.
+
+## Telemetry composition — 24 October 2026
+
+- Replaced the three gauges with a two-tier summary inside the existing device
+  card. Battery has the largest value and a single 4 pt charge bar; runtime is
+  text aligned with the device name above. A quieter demand row keeps UPS load
+  and power together. Native macOS text styles establish the hierarchy.
+- Normal load is monochrome; the battery bar retains its existing green,
+  orange and red state colours. Stale readings are grey and explicitly labelled
+  as last recorded. Runtime has no proportional graphic.
+- Missing readings remain labelled as unavailable. The demand row can wrap into
+  two lines when its contents need more width. Existing watts/VA formatting and
+  telemetry calculations are unchanged, as are the surrounding dashboard sections
+  and window dimensions.
+- Debug build passed with no compiler warnings; all 136 existing tests passed.
+  After the tests, final alignment and missing-power colour adjustments were
+  rebuilt and visually checked.
+- Inspected production telemetry views rendered with real reading/formatting
+  code at 460, 682 and 1000 pt in light and dark appearances. Fixtures cover long
+  runtimes, low battery, overload, stale values, missing readings, zero readings
+  and apparent power. Minimum-width light/dark state sheets are saved as
+  `Visual-Verification/telemetry-states-{light,dark}-460.png`.
+- Inspected the built dashboard beneath its unchanged device header using an
+  isolated app copy and loopback NUT fixture. Sharing with macOS, notifications
+  and sleep prevention were disabled in that copy. The capture at the existing
+  default size is `Visual-Verification/telemetry-dashboard-light.jpg`.
+
+## Grouped telemetry refinement — 24 October 2026
+
+- Matched the supplied render's grouping: battery and runtime share a larger
+  rounded panel with a subtle state tint; UPS load has a separate, narrower
+  neutral panel. The restored load ring is 84 pt, with percentage and power
+  together inside. The primary battery bar is 6 pt tall.
+- Panel fills use adaptive system control-background, foreground and semantic
+  colours. Shared 12 pt outer padding and spacing keep the overall telemetry
+  height slightly below the preceding two-tier layout. The device header and
+  all other sections remain unchanged.
+- Debug build passed without compiler warnings. Inspected production telemetry
+  renders in light and dark mode at 460, 682 and 1000 pt, covering missing and
+  stale readings, zero values, long runtimes, overload and apparent power.
+  No telemetry calculation, communication or polling code changed.
+- Verified the full built dashboard using the isolated loopback fixture app.
+  Capture: `Visual-Verification/telemetry-grouped-dashboard-light.jpg`.
+  Minimum-width state sheets:
+  `Visual-Verification/telemetry-grouped-states-{light,dark}-460.png`.
+
+## Otter toolbar alignment — 24 October 2026
+
+- Adopted Otter's native ToolbarItemGroup and SF Symbols: gearshape for the
+  settings/actions menu, clock.arrow.circlepath for Power History, and
+  stethoscope for the existing connection assistant. Removed custom icon sizing
+  and spacing so macOS supplies the same grouped toolbar appearance as Otter.
+- Power Schedule remains in the gear menu and its dashboard section. Existing
+  refresh, device editing and removal actions remain in the gear menu.
+- Debug build passed without compiler warnings. Inspected the built toolbar and
+  gear menu in the isolated fixture app; saved `Visual-Verification/otter-toolbar-light.jpg`.
+
+## Restore the UPS sidebar — 24 October 2026
+
+- Replaced the toolbar UPS selector and custom popover with a native
+  NavigationSplitView sidebar. It opens visible, lists each UPS with its live
+  status, and offers Add, Remove and Manage controls at the bottom. Device
+  context menus retain the existing actions; the toolbar keeps gear/history.
+- The sidebar uses a 200 pt ideal width with a 180–260 pt range. The dashboard
+  retains its 460 pt minimum width and fits alongside the sidebar in the
+  unchanged 682 pt default window. Native sidebar collapse/expand is available.
+- Debug build passed without compiler warnings. In an isolated two-device
+  fixture, selecting Office changed the header and readings to 75%, 30 min,
+  6% load and 60 W. Hiding and reopening the sidebar preserved that selection.
+  System sharing stayed disabled; selection does not change the shared UPS.
+- Capture: `Visual-Verification/sidebar-restored-light.jpg`.
+
+## Dedicated connection editor and reconnect recovery — 25 October 2026
+
+- Connection actions in the dashboard, sidebar context menu and Manage UPS
+  sheet now open a separate Connection window. Credential-repair actions use
+  the same editor. Add UPS continues to use onboarding.
+- Existing server, port, UPS and Keychain credentials populate a local draft.
+  Test Connection enumerates the server and reads its UPS devices without
+  saving, publishing or restarting monitoring. Save requires a changed draft
+  matching the successful test and a selected UPS with a real reading.
+- A missing original UPS requires an explicit selection. Empty servers,
+  invalid fields, failed probes, edits after testing, cancellation, duplicate
+  targets, removed devices and concurrent connection changes cannot apply an
+  unverified draft. Saving preserves the current name, picture, polling interval
+  and sharing role; credentials move to the new Keychain account when necessary.
+- The window sizes to its content, including authentication and error messages.
+  In the isolated loopback fixture, verified opening, cancellation, successful
+  testing, authentication expansion and saving a changed port. Read back the
+  isolated settings to confirm the port changed while the same UPS and sharing
+  role remained. Captures: `Visual-Verification/connection-editor-light.jpg`
+  and `Visual-Verification/connection-editor-tested-light.jpg`.
+- The supplied log exposed reuse of a dead NUT socket after a server reset.
+  Failed polls now abort that transport before retrying; stopping monitoring
+  also aborts pending transports. The editor probe has a bounded timeout and
+  cancellation that aborts its own temporary client.
+- All 143 tests passed, including six editor regression tests and a loopback
+  monitor test that drops the first live connection and verifies a fresh socket
+  supplies the recovered reading. Final Debug build passed without compiler
+  warnings after accessibility-label adjustments. Test linking retains the
+  existing XCTest SDK macOS-14 versus app deployment-target-13 warnings.
+- macOS's `com.apple.linkd.autoShortcut` service errors also occurred in the test
+  host; they are separate from the closed-socket failure and are not resolved
+  by this change. No system service or live UPS configuration was changed.
+
+## Right-aligned UPS illustration — 25 October 2026
+
+- Moved the illustration to the trailing edge of the device header. Name,
+  manufacturer/capacity and status now share the Battery section's leading
+  alignment. Illustration width reduces from 115 to 88 pt in narrower detail
+  panes; the header retains its existing minimum height.
+- Kept the picture picker and exposed it as a separate accessible button.
+  Verified the built app with the sidebar visible and collapsed, and opened
+  the picker from the relocated image. Debug build passed without warnings.
+- Capture: `Visual-Verification/header-illustration-right.jpg`.

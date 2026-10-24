@@ -161,6 +161,7 @@ final class UPSMonitor: ObservableObject {
         failingSince.removeAll()
         pollTasks.values.forEach { $0.cancel() }
         pollTasks.removeAll()
+        for client in clients.values { Task { await client.abort() } }
         clients.removeAll()
         onBatterySince.removeAll()
         busyDeviceIDs.removeAll()
@@ -174,7 +175,7 @@ final class UPSMonitor: ObservableObject {
         states[device.id] = .connecting
 
         pollTasks[device.id] = Task { [weak self] in
-            defer { Task { await client.disconnect() } }
+            defer { Task { await client.abort() } }
             var haveCommands = false
             while !Task.isCancelled {
                 do {
@@ -188,6 +189,10 @@ final class UPSMonitor: ObservableObject {
                         haveCommands = true
                     }
                 } catch {
+                    // connect() reuses an existing transport. Discard the failed
+                    // one so the next poll opens a fresh, authenticated socket.
+                    await client.abort()
+                    haveCommands = false
                     guard !Task.isCancelled else { break }
                     await self?.handle(error: error, for: device)
                 }

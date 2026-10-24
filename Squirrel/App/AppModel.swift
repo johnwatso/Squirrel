@@ -7,6 +7,7 @@ import SwiftUI
 final class AppModel: ObservableObject {
     static let manageWindowID = "manage-ups"
     static let assistantWindowID = "connect-ups"
+    static let connectionWindowID = "ups-connection"
 
     /// Squirrel's windows. The Dock icon follows whether any of them is on
     /// screen, so the app is a menu bar item when it is only monitoring and a
@@ -14,6 +15,7 @@ final class AppModel: ObservableObject {
     enum WindowKind: Hashable {
         case manage
         case assistant
+        case connection
         case settings
     }
 
@@ -32,6 +34,7 @@ final class AppModel: ObservableObject {
     /// here so the menu bar and the management window open the same one
     /// rather than each growing a configuration screen of its own.
     @Published private(set) var assistant: ConnectionAssistantModel?
+    @Published private(set) var connectionEditor: ConnectionEditorModel?
 
     /// What macOS itself last reported about our UPS. Polled while a window is
     /// open, so the UI shows the system's answer rather than Squirrel's.
@@ -39,6 +42,7 @@ final class AppModel: ObservableObject {
 
     @Published var shouldOpenManageWindow = false
     @Published var shouldOpenAssistantWindow = false
+    @Published var shouldOpenConnectionWindow = false
     @Published var isShowingPowerHistory = false
     /// Which UPS the history sheet shows. Set by whoever opens it, so the
     /// menu bar and the main window each open the history they mean.
@@ -223,25 +227,35 @@ final class AppModel: ObservableObject {
 
     // MARK: - Connection assistant
 
-    /// Opens the assistant. Passing a device reconfigures that one instead of
-    /// adding another, so an existing user is never sent through first-run
-    /// setup to change a port.
-    func beginConnectionAssistant(editing device: UPSDevice? = nil) {
+    /// Onboarding is reserved for adding a UPS.
+    func beginConnectionAssistant() {
         assistant = ConnectionAssistantModel(
             settings: settings,
             monitor: monitor,
             publisher: publisher,
-            discovery: discovery,
-            editing: device
+            discovery: discovery
         )
         shouldOpenAssistantWindow = true
     }
 
-    /// Opens the assistant on a UPS's connection with the sign-in fields
-    /// showing, for a user who needs to add or fix a username.
+    func editConnection(_ device: UPSDevice) {
+        connectionEditor?.cancel()
+        connectionEditor = ConnectionEditorModel(device: settings.device(id: device.id) ?? device, settings: settings, onSave: { [weak self] in
+            self?.monitor.restart()
+            self?.refreshSystemPowerSource()
+        })
+        shouldOpenConnectionWindow = true
+    }
+
+    func endEditingConnection() {
+        connectionEditor?.cancel()
+        connectionEditor = nil
+    }
+
+    /// Credential repairs use the existing-device editor, not onboarding.
     func beginSigningIn(_ device: UPSDevice) {
-        beginConnectionAssistant(editing: device)
-        assistant?.showsAuthentication = true
+        editConnection(device)
+        connectionEditor?.showsAuthentication = true
     }
 
     /// Runs a UPS command from the menu bar, which only offers them for a UPS

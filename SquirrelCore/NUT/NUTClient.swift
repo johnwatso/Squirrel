@@ -103,6 +103,14 @@ public actor NUTClient {
         buffer.removeAll()
     }
 
+    /// Immediately discard a failed or cancelled transport. Do not send LOGOUT
+    /// to a dead socket or wait for an unresponsive server to acknowledge it.
+    public func abort() {
+        connection?.cancel()
+        connection = nil
+        buffer.removeAll()
+    }
+
     // MARK: - Queries
 
     /// `LIST UPS` — the names upsd actually serves. Onboarding enumerates with
