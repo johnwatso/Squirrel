@@ -57,9 +57,13 @@ struct PowerProfileAdvisor {
         process.arguments = arguments
         let pipe = Pipe()
         process.standardOutput = pipe
+        // Not waitUntilExit: it spins the caller's run loop, and on the main
+        // thread during a window update that re-enters AppKit and crashes.
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         guard (try? process.run()) != nil else { return nil }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        exited.wait()
         return String(data: data, encoding: .utf8)
     }
 

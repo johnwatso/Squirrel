@@ -11,12 +11,19 @@ struct PreferencesView: View {
                 .tabItem { Label("Power", systemImage: "bolt") }
             NotificationSettingsView()
                 .tabItem { Label("Notifications", systemImage: "bell") }
-            AppearanceSettingsView()
-                .tabItem { Label("Appearance", systemImage: "paintpalette") }
         }
-        // A fixed, compact size keeps the window from jumping between tabs;
-        // each tab's form scrolls if it ever needs more room.
-        .frame(width: 620, height: 540, alignment: .top)
+        // A fixed width, and each pane's own height, so the window resizes
+        // to fit the selected pane as macOS settings windows do.
+        .frame(width: 560)
+    }
+}
+
+private extension View {
+    /// Sizes a settings form to its contents instead of scrolling.
+    func settingsPane() -> some View {
+        formStyle(.grouped)
+            .scrollDisabled(true)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -45,8 +52,17 @@ private struct GeneralSettingsView: View {
                 SettingsFootnote("Squirrel publishes the UPS for as long as it is running, so macOS only sees your UPS while Squirrel is open.")
             }
 
+            Section {
+                Picker("Menu bar", selection: $settings.preferences.menuBarDisplay) {
+                    ForEach(MenuBarDisplay.allCases, id: \.self) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+            } footer: {
+                SettingsFootnote("Squirrel's icon always shows the UPS's state. This chooses whether the battery percentage sits beside it.")
+            }
         }
-        .formStyle(.grouped)
+        .settingsPane()
         .task {
             loginItem.refresh()
             await notifications.refreshAuthorizationStatus()
@@ -99,7 +115,8 @@ private struct NotificationSettingsView: View {
             } footer: {
                 SettingsFootnote("One notification per change, never per reading. A brief network hiccup is not reported; a connection problem must last at least 15 seconds. macOS's notification settings still apply.")
             }
-        }.formStyle(.grouped)
+        }
+        .settingsPane()
         .task { await notifications.refreshAuthorizationStatus() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await notifications.refreshAuthorizationStatus() }
@@ -115,23 +132,6 @@ private struct NotificationSettingsView: View {
                 if isOn { Task { await notifications.requestAuthorizationIfNeeded() } }
             }
         )
-    }
-}
-
-private struct AppearanceSettingsView: View {
-    @EnvironmentObject private var settings: SettingsStore
-    var body: some View {
-        Form {
-            Section {
-                Picker("Menu bar", selection: $settings.preferences.menuBarDisplay) {
-                    ForEach(MenuBarDisplay.allCases, id: \.self) { option in
-                        Text(option.label).tag(option)
-                    }
-                }
-            } footer: {
-                SettingsFootnote("Squirrel's icon always shows the UPS's state. This chooses whether the battery percentage sits beside it.")
-            }
-        }.formStyle(.grouped)
     }
 }
 
@@ -186,7 +186,7 @@ private struct PowerSettingsView: View {
                 SettingsFootnote("Keep the Mac awake prevents idle sleep during a confirmed outage so macOS can reach its shutdown rules. The display can still sleep, and you can still put the Mac to sleep manually.")
             }
         }
-        .formStyle(.grouped)
+        .settingsPane()
         .onAppear { appModel.refreshSystemPowerSource(); appModel.refreshPowerProfileAdvice() }
         .onChange(of: settings.preferences.publishPowerSource) { _ in monitor.restart() }
     }

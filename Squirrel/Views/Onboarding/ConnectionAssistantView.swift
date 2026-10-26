@@ -717,32 +717,24 @@ struct ConnectionAssistantView: View {
 
             switch assistant.step {
             case .welcome:
-                Button { assistant.beginFinding() } label: {
-                    Label("Get Started", systemImage: "arrow.right").labelStyle(.trailingIcon)
-                }
+                Button("Get Started") { assistant.beginFinding() }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
 
             case .find:
-                Button { Task { await continueFromFind() } } label: {
-                    Label("Continue", systemImage: "arrow.right").labelStyle(.trailingIcon)
-                }
+                Button("Continue") { Task { await continueFromFind() } }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canContinueFromFind || assistant.isValidating)
 
             case .manual:
-                Button { submitManualEntry() } label: {
-                    Label("Continue", systemImage: "arrow.right").labelStyle(.trailingIcon)
-                }
+                Button("Continue") { submitManualEntry() }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
                 .disabled(assistant.host.trimmingCharacters(in: .whitespaces).isEmpty || assistant.isValidating)
 
             case .select:
-                Button { Task { await assistant.connect() } } label: {
-                    Label("Connect", systemImage: "arrow.right").labelStyle(.trailingIcon)
-                }
+                Button("Connect") { Task { await assistant.connect() } }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
                 .disabled(assistant.selectedUPSName == nil)

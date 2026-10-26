@@ -285,20 +285,6 @@ extension View {
     }
 }
 
-/// Trailing-icon label, for "Continue →".
-struct TrailingIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 5) {
-            configuration.title
-            configuration.icon.font(.footnote.weight(.semibold))
-        }
-    }
-}
-
-extension LabelStyle where Self == TrailingIconLabelStyle {
-    static var trailingIcon: TrailingIconLabelStyle { .init() }
-}
-
 private let assistantSeparatorInset: CGFloat = 12
 
 /// A hairline between rows in a grouped list, inset like a system list.

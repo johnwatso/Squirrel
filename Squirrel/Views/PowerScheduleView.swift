@@ -7,6 +7,7 @@ struct PowerScheduleView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var editor: ScheduleEditorSession?
     @State private var showingHelp = false
+    @State private var ruleToDelete: RepeatingPowerSchedule?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
@@ -44,9 +45,7 @@ struct PowerScheduleView: View {
                                 draft[index].enabled = enabled
                                 apply(draft)
                             }
-                        ), edit: { openEditor(rule) }, delete: {
-                            apply(service.schedules.filter { $0.id != rule.id })
-                        })
+                        ), edit: { openEditor(rule) }, delete: { ruleToDelete = rule })
                     }
                 }
 
@@ -92,6 +91,22 @@ struct PowerScheduleView: View {
         .frame(width: 650)
         .interactiveDismissDisabled(service.isApplying)
         .onAppear { service.clearError(); service.refresh() }
+        // Deleting changes the Mac's own power schedule, so it is confirmed.
+        .confirmationDialog(
+            "Delete the \(ruleToDelete?.action.cardTitle ?? "") schedule?",
+            isPresented: Binding(get: { ruleToDelete != nil }, set: { if !$0 { ruleToDelete = nil } }),
+            presenting: ruleToDelete
+        ) { rule in
+            Button("Delete Schedule", role: .destructive) {
+                apply(service.schedules.filter { $0.id != rule.id })
+                ruleToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { ruleToDelete = nil }
+        } message: { rule in
+            Text(rule.enabled
+                 ? "macOS will stop running it. The other schedule is kept."
+                 : "It will be removed from Squirrel. The other schedule is kept.")
+        }
         .sheet(item: $editor) { session in
             ScheduleEditorSheet(service: service, session: session) { previous in
                 recordChange(from: previous)
@@ -179,7 +194,7 @@ private struct ScheduleCard: View {
                 .help(rule.enabled ? "Disable this schedule" : "Enable this schedule")
             Menu {
                 Button("Edit Schedule…", action: edit)
-                Button("Delete Schedule", role: .destructive, action: delete)
+                Button("Delete Schedule…", role: .destructive, action: delete)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

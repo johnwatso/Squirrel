@@ -56,7 +56,7 @@ struct SquirrelApp: App {
                 .onAppear { appModel.setWindow(.manage, visible: true) }
                 .onDisappear { appModel.setWindow(.manage, visible: false) }
         }
-        .defaultSize(width: 682, height: 903)
+        .defaultSize(width: 682, height: 760)
         .windowToolbarStyle(.unified)
         .commands { SquirrelCommands(appModel: appModel) }
 

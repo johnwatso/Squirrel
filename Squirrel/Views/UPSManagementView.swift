@@ -66,7 +66,8 @@ struct UPSManagementView: View {
             }
         }
         .frame(minWidth: 460)
-        .navigationTitle("Squirrel")
+        // The window is about the selected UPS, so its title names it.
+        .navigationTitle(selectedDevice?.displayName ?? "Squirrel")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 // App-wide Settings… lives in the app menu (⌘,), so this menu

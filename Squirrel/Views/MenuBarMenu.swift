@@ -138,11 +138,9 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
 
         entries.append(.separator("actions"))
         entries += devices.compactMap(alarmEntry)
-        if devices.isEmpty {
-            entries.append(.action(id: "setup", title: "Add UPS…", symbol: "plus") { [appModel] in
-                appModel.beginConnectionAssistant()
-            })
-        }
+        entries.append(.action(id: "add", title: "Add UPS…", symbol: "plus") { [appModel] in
+            appModel.beginConnectionAssistant()
+        })
         entries.append(.action(id: "open", title: "Open Squirrel", symbol: "macwindow", key: "o") { [appModel] in
             appModel.triggerOpenManageWindow()
         })
@@ -273,11 +271,6 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
                 })
             }
         }
-
-        submenu.append(.separator("add"))
-        submenu.append(.action(id: "add", title: "Add UPS…", symbol: "plus") { [appModel] in
-            appModel.beginConnectionAssistant()
-        })
 
         var entry = MenuEntry(id: "controls", title: "Controls", symbol: "power")
         entry.submenu = submenu

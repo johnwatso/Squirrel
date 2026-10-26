@@ -212,9 +212,12 @@ final class PowerScheduleService: ObservableObject {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        // Not waitUntilExit, which spins the run loop; see PowerProfileAdvisor.
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        exited.wait()
         let output = String(decoding: data, as: UTF8.self)
         guard process.terminationStatus == 0 else { throw ScheduleError.invalid(output) }
         return output
