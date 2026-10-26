@@ -383,8 +383,12 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Energy (Battery on a laptop), where the UPS Options sheet lives. The
+    /// pane's legacy identifier: System Settings maps it to the current
+    /// extension (com.apple.Battery-Settings.extension on macOS 27), and an
+    /// unknown identifier silently opens General instead.
     static func openEnergySettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.Energy-Saver-Settings") else { return }
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preferences.EnergySaverPrefPane") else { return }
         NSWorkspace.shared.open(url)
     }
 }
