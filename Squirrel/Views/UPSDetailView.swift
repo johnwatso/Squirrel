@@ -203,7 +203,14 @@ private struct UPSIdentityHeader: View {
     @State private var choosingPicture = false
     @State private var availableWidth: CGFloat = 0
 
-    private var illustrationWidth: CGFloat { availableWidth < 460 ? 88 : 115 }
+    /// The picture's slot, sized to balance the name, model and status beside
+    /// it. The drawing fits inside by its own outline, so a 2U rack fills the
+    /// width and a tower fills the height. The slot takes up to 40% of the
+    /// header, so it shrinks smoothly with the pane rather than in a step.
+    private var illustrationSlot: CGSize {
+        let width = min(168, max(110, availableWidth * 0.4))
+        return CGSize(width: width, height: width * 96 / 168)
+    }
 
     var body: some View {
         HStack(spacing: 20) {
@@ -231,8 +238,8 @@ private struct UPSIdentityHeader: View {
             .layoutPriority(1)
 
             Button { choosingPicture = true } label: {
-                UPSDeviceIllustration(kind: device.illustration(for: reading), isTiled: false)
-                    .frame(width: illustrationWidth, height: illustrationWidth * 88 / 115)
+                UPSDeviceIllustration(kind: device.illustration(for: reading), isTiled: false, alignment: .trailing)
+                    .frame(width: illustrationSlot.width, height: illustrationSlot.height)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

@@ -74,12 +74,16 @@ extension UPSDevice {
 /// A small vector drawing of the UPS. These are original drawings of each
 /// product's front, never vendor images, and deliberately carry no logos.
 /// Drawn at 115 × 88 and scaled to fit whatever frame it is given. In a
-/// tile (the picker, onboarding rows) it sits on a rounded well; standing
-/// alone (the dashboard header) it has no background.
+/// tile (the picker, onboarding rows) it sits on a rounded well, and the
+/// whole canvas is fitted so every tile matches; standing alone (the
+/// dashboard header) it has no background and only the drawing itself is
+/// fitted, so a thin rack unit and a tall tower carry similar weight.
 struct UPSDeviceIllustration: View {
     let kind: UPSIllustrationKind
     var cornerRadius: CGFloat = 14
     var isTiled = true
+    /// Where the drawing sits when it is not filling its frame.
+    var alignment: Alignment = .center
 
     var body: some View {
         ZStack {
@@ -87,9 +91,13 @@ struct UPSDeviceIllustration: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.primary.opacity(0.035))
             }
             Canvas { context, size in
-                let scale = min(size.width / UPSDrawing.size.width, size.height / UPSDrawing.size.height)
+                let source = isTiled ? CGRect(origin: .zero, size: UPSDrawing.size) : UPSDrawing.bounds(of: kind)
+                let scale = min(size.width / source.width, size.height / source.height)
+                let slack = CGSize(width: size.width - source.width * scale, height: size.height - source.height * scale)
+                let unit = UnitPoint(x: alignment.horizontal == .leading ? 0 : alignment.horizontal == .trailing ? 1 : 0.5,
+                                     y: alignment.vertical == .top ? 0 : alignment.vertical == .bottom ? 1 : 0.5)
                 var context = context
-                context.translateBy(x: (size.width - UPSDrawing.size.width * scale) / 2, y: (size.height - UPSDrawing.size.height * scale) / 2)
+                context.translateBy(x: slack.width * unit.x - source.minX * scale, y: slack.height * unit.y - source.minY * scale)
                 context.scaleBy(x: scale, y: scale)
                 UPSDrawing.draw(kind, in: context)
             }
@@ -148,6 +156,25 @@ private enum UPSDrawing {
     static let size = CGSize(width: 115, height: 88)
     static let blue = Color(red: 0.36, green: 0.56, blue: 1)
     static let green = Color(red: 0.3, green: 0.8, blue: 0.42)
+
+    /// The part of the 115 × 88 canvas each drawing actually covers, shadow
+    /// included, so a header can fit the drawing rather than its padding.
+    static func bounds(of kind: UPSIllustrationKind) -> CGRect {
+        func tower(_ body: CGRect) -> CGRect {
+            // The floor shadow reaches 5 pt past each side and 2 pt below.
+            CGRect(x: body.minX - 5, y: body.minY - 1, width: body.width + 10, height: body.height + 4)
+        }
+        switch kind {
+        case .unifiRack: return CGRect(x: 6, y: 32, width: 103, height: 22.2)
+        case .lcdRack, .genericRack: return CGRect(x: 6, y: 33, width: 103, height: 22)
+        case .unifiTower: return tower(CGRect(x: 45, y: 8, width: 25, height: 71))
+        case .apcBackUPS: return tower(CGRect(x: 45, y: 10, width: 25, height: 69))
+        case .apcSmartUPS: return tower(CGRect(x: 38, y: 16, width: 39, height: 62))
+        case .cyberPowerTower: return tower(CGRect(x: 44, y: 8, width: 27, height: 71))
+        case .eatonTower: return tower(CGRect(x: 34, y: 20, width: 47, height: 58))
+        case .genericTower: return tower(CGRect(x: 42, y: 12, width: 31, height: 66))
+        }
+    }
 
     static func draw(_ kind: UPSIllustrationKind, in context: GraphicsContext) {
         switch kind {
