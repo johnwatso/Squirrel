@@ -77,24 +77,6 @@ struct MacProtectionStatus: Equatable {
     }
 }
 
-/// A coloured dot and a word. The one status vocabulary used everywhere.
-struct StatusBadge: View {
-    let title: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(tint)
-                .frame(width: 7, height: 7)
-                .accessibilityHidden(true)
-            Text(title)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// The Mac Protection section reports macOS's rules alongside Squirrel's
 /// keep-awake preference. Shutdown rules remain owned by macOS.
 struct MacProtectionSection: View {

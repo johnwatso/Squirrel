@@ -11,7 +11,6 @@ struct UPSManagementView: View {
 
     @State private var showingSchedule = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
-    @State private var showingDevices = false
     @State private var selectedDeviceID: UPSDevice.ID?
     @State private var deviceToRemove: UPSDevice?
     @State private var deviceToRename: UPSDevice?
@@ -32,9 +31,6 @@ struct UPSManagementView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
-        .sheet(isPresented: $showingDevices) {
-            UPSDevicesSheet()
-        }
         .sheet(isPresented: $appModel.isShowingPowerHistory) {
             PowerHistorySheet()
         }
@@ -146,9 +142,7 @@ struct UPSManagementView: View {
                     }
                     .disabled(selectedDevice == nil)
                     .help("Remove selected UPS")
-                    Spacer(minLength: 4)
-                    Button("Manage…") { showingDevices = true }
-                        .help("Manage UPS devices")
+                    Spacer(minLength: 0)
                 }
                 .buttonStyle(.borderless)
                 .padding(12)

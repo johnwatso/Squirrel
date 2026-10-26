@@ -87,7 +87,6 @@ struct UPSDetailView: View {
             .padding(.top, 6)
             .padding(.bottom, 33)
         }
-        .background(DashboardPalette.background)
         .font(SquirrelFont.body)
         .onAppear { appModel.refreshSystemPowerSource() }
     }
@@ -310,6 +309,11 @@ private struct NameSuggestionRow: View {
 private struct UPSMeasurements: View {
     let reading: UPSReading
     let isLive: Bool
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    /// Inner panels sit inside a card, so they take a second, slightly
+    /// stronger layer of the same fill.
+    private var panelFill: Color { Color.primary.opacity(contrast == .increased ? 0.08 : 0.04) }
 
     private var charge: Int? { reading.batteryCharge.flatMap { (0...100).contains($0) ? $0 : nil } }
     private var runtime: Int? { reading.batteryRuntime.flatMap { $0 >= 0 ? $0 : nil } }
@@ -322,7 +326,7 @@ private struct UPSMeasurements: View {
                 batteryReserve
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Rectangle()
-                    .fill(Color.primary.opacity(0.06))
+                    .fill(Color(nsColor: .separatorColor))
                     .frame(width: 1)
                     .accessibilityHidden(true)
                 runtimeEstimate
@@ -330,20 +334,13 @@ private struct UPSMeasurements: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.45))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill((charge == nil ? Color.secondary : batteryTint).opacity(0.035))
-                    }
-            }
+            .background(panelFill, in: RoundedRectangle(cornerRadius: 12))
 
             loadSummary
                 .padding(.vertical, 12)
                 .frame(width: 112)
                 .frame(maxHeight: .infinity)
-                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+                .background(panelFill, in: RoundedRectangle(cornerRadius: 12))
         }
         .foregroundStyle(isLive ? .primary : .secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -401,7 +398,7 @@ private struct UPSMeasurements: View {
                 .foregroundStyle(.secondary)
             ZStack {
                 Circle()
-                    .stroke(Color.primary.opacity(0.07), lineWidth: 5)
+                    .stroke(Color(nsColor: .quaternaryLabelColor), lineWidth: 5)
                 if let load {
                     Circle()
                         .trim(from: 0, to: Double(load) / 100)
@@ -450,7 +447,7 @@ private struct BatteryReserveStyle: ProgressViewStyle {
     func makeBody(configuration: Configuration) -> some View {
         GeometryReader { geometry in
             Capsule()
-                .fill(Color.primary.opacity(0.08))
+                .fill(Color(nsColor: .quaternaryLabelColor))
                 .overlay(alignment: .leading) {
                     Capsule()
                         .fill(tint)
@@ -525,28 +522,33 @@ private struct TechnicalHeading: View {
 // MARK: - Dashboard layout primitives
 
 enum DashboardPalette {
-    static let background = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? .windowBackgroundColor
-            : NSColor(srgbRed: 0.98, green: 0.98, blue: 0.988, alpha: 1)
-    })
-    static let secondary = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? .secondaryLabelColor
-            : NSColor(srgbRed: 0.43, green: 0.45, blue: 0.51, alpha: 1)
-    })
+    /// Secondary text, from the system palette so it follows light, dark
+    /// and Increase Contrast.
+    static let secondary = Color(nsColor: .secondaryLabelColor)
 }
 
-
+/// A hairline between rows, in the system separator colour.
 struct DashboardDivider: View {
-    var body: some View { Rectangle().fill(Color.primary.opacity(0.055)).frame(height: 1) }
+    var body: some View { Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1) }
+}
+
+/// A grouped card: a faint fill that strengthens under Increase Contrast,
+/// edged in the system separator colour.
+private struct DashboardCard: ViewModifier {
+    let radius: CGFloat
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        content
+            .background(Color.primary.opacity(contrast == .increased ? 0.07 : 0.03))
+            .clipShape(RoundedRectangle(cornerRadius: radius))
+            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1) }
+    }
 }
 
 extension View {
     func dashboardCard(radius: CGFloat = 12) -> some View {
-        background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: radius))
-            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Color.primary.opacity(0.055), lineWidth: 1) }
+        modifier(DashboardCard(radius: radius))
     }
 }
 

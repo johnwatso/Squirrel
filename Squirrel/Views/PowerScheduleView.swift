@@ -25,6 +25,7 @@ struct PowerScheduleView: View {
                 }
                 .buttonStyle(.plain).help("About power schedules")
                 .accessibilityLabel("About power schedules")
+                .popover(isPresented: $showingHelp, arrowEdge: .bottom) { ScheduleHelpView(service: service) }
             }
             .padding(.horizontal, 10)
 
@@ -105,7 +106,6 @@ struct PowerScheduleView: View {
                 recordChange(from: previous)
             }
         }
-        .sheet(isPresented: $showingHelp) { ScheduleHelpSheet(service: service) }
     }
 
     private func openEditor(_ rule: RepeatingPowerSchedule?) {
@@ -224,20 +224,11 @@ struct ScheduleEditorSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button("Cancel") { service.clearError(); dismiss() }.keyboardShortcut(.cancelAction)
-                Spacer()
-                Button(session.original == nil ? "Add" : "Save", action: save)
-                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
-                    .disabled(rule.days == 0 || !session.allows(rule.action) || service.readError != nil)
-            }
-            .controlSize(.large)
-            .overlay {
-                Text(session.original == nil ? "Add Schedule" : "Edit Schedule")
-                    .font(SquirrelFont.sectionTitle).allowsHitTesting(false)
-            }
-            .padding(.horizontal, 30).padding(.vertical, 20)
-            .disabled(service.isApplying)
+            Text(session.original == nil ? "Add Schedule" : "Edit Schedule")
+                .font(SquirrelFont.sheetTitle)
+                .accessibilityAddTraits(.isHeader)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 30).padding(.top, 24).padding(.bottom, 16)
             Divider()
 
             ScheduleSheetScroll {
@@ -333,15 +324,28 @@ struct ScheduleEditorSheet: View {
                     ScheduleInformation(title: "These are macOS power schedules.",
                         detail: "Administrator approval may be required. Existing schedules are shared with other apps.",
                         learnMore: { showingHelp = true })
+                        .popover(isPresented: $showingHelp, arrowEdge: .top) { ScheduleHelpView(service: service) }
                 }
                 .padding(.horizontal, 30).padding(.bottom, 28)
             }
+
+            // Buttons at the bottom trailing edge, Cancel before the default
+            // button, as in every macOS sheet.
+            Divider()
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancel") { service.clearError(); dismiss() }.keyboardShortcut(.cancelAction)
+                Button(session.original == nil ? "Add" : "Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(rule.days == 0 || !session.allows(rule.action) || service.readError != nil)
+            }
+            .padding(.horizontal, 20).padding(.vertical, 16)
+            .disabled(service.isApplying)
         }
         .frame(width: 580)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.82))
         .background(.regularMaterial)
         .interactiveDismissDisabled(service.isApplying)
-        .sheet(isPresented: $showingHelp) { ScheduleHelpSheet(service: service) }
     }
 
     private func sectionTitle(_ text: String) -> some View {
@@ -484,13 +488,13 @@ private struct ScheduleErrorMessage: View {
     }
 }
 
-private struct ScheduleHelpSheet: View {
+/// Shown in a popover from the help button, never as a sheet on a sheet.
+private struct ScheduleHelpView: View {
     @ObservedObject var service: PowerScheduleService
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("About Power Schedules").font(.title2.bold())
+        VStack(alignment: .leading, spacing: 14) {
+            Text("About Power Schedules").font(.title3.bold())
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     helpSection("Two shared recurring slots", "macOS supports one startup or wake rule, plus one sleep, restart or shutdown rule. Multiple rules of the same kind cannot coexist, even on different days. Schedules created in Terminal or another app appear here too.")
@@ -516,11 +520,10 @@ private struct ScheduleHelpSheet: View {
                         }
                     }
                 }
-                .font(SquirrelFont.body).padding(.trailing, 8)
+                .padding(.trailing, 8)
             }
-            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
         }
-        .padding(28).frame(width: 560, height: 600)
+        .padding(20).frame(width: 440, height: 480)
     }
 
     private func helpSection(_ title: String, _ detail: String) -> some View {
@@ -547,8 +550,8 @@ private extension RepeatingPowerSchedule.Action {
     }
     var scheduleColor: Color {
         switch self {
-        case .wake, .wakeorpoweron, .poweron: return .yellow
-        case .sleep: return Color(red: 0.49, green: 0.28, blue: 0.98)
+        case .wake, .wakeorpoweron, .poweron: return .orange
+        case .sleep: return .indigo
         case .shutdown: return .red
         case .restart: return .secondary
         }

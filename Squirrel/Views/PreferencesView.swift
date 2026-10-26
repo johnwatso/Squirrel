@@ -9,8 +9,6 @@ struct PreferencesView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             PowerSettingsView()
                 .tabItem { Label("Power", systemImage: "bolt") }
-            UPSDevicesView()
-                .tabItem { Label("UPS Devices", systemImage: "externaldrive") }
             NotificationSettingsView()
                 .tabItem { Label("Notifications", systemImage: "bell") }
             AppearanceSettingsView()
