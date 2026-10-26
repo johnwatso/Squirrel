@@ -31,9 +31,6 @@ struct UPSManagementView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
-        .sheet(isPresented: $appModel.isShowingPowerHistory) {
-            PowerHistorySheet()
-        }
         .onAppear(perform: validateSelection)
         .onChange(of: settings.devices) { _ in validateSelection() }
         .confirmationDialog(
@@ -72,8 +69,9 @@ struct UPSManagementView: View {
         .navigationTitle("Squirrel")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                // App-wide Settings… lives in the app menu (⌘,), so this menu
+                // holds only what acts on the window and its selected UPS.
                 Menu {
-                    Button("Settings…") { MenuBarMenu.openSettings() }
                     Button("Power Schedule…") { showingSchedule = true }
                     Divider()
                     Button("Refresh") {
@@ -83,10 +81,10 @@ struct UPSManagementView: View {
                     }
                     if let device = selectedDevice { deviceActions(for: device) }
                 } label: {
-                    Label("UPS Settings and Actions", systemImage: "gearshape")
+                    Label("Actions", systemImage: "ellipsis.circle")
                 }
                 .menuIndicator(.hidden)
-                .help("UPS Settings and Actions")
+                .help("Actions")
 
                 Button { appModel.showHistory(for: selectedDevice) } label: {
                     Label("Power History", systemImage: "clock.arrow.circlepath")
@@ -182,14 +180,14 @@ struct UPSManagementView: View {
             Image(systemName: "bolt.slash")
                 .font(.system(size: 34))
                 .foregroundStyle(.secondary)
-            Text("No UPS connected")
+            Text("No UPS Connected")
                 .font(.title3.weight(.semibold))
             Text("Squirrel makes a network UPS available to macOS, just like a USB-connected one.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
-            Button("Connect a UPS…") { appModel.beginConnectionAssistant() }
+            Button("Add UPS…") { appModel.beginConnectionAssistant() }
                 .keyboardShortcut(.defaultAction)
                 .padding(.top, 4)
         }

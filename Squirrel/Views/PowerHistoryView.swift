@@ -175,87 +175,12 @@ struct HistoryChart: View {
     }
 }
 
-// MARK: - Preview in the main window
-
-/// A quiet strip in the main window: the last day of power at a glance, and
-/// the most recent event. The full history opens in a sheet.
-struct PowerHistoryPreviewSection: View {
-    @EnvironmentObject private var appModel: AppModel
-    @EnvironmentObject private var history: PowerHistory
-
-    let device: UPSDevice
-
-    @State private var samples: [PowerSample] = []
-    @State private var latestEvent: PowerEvent?
-    @State private var hasLoaded = false
-
-    /// Power if the UPS reports it, load if not, charge as a last resort.
-    private var metric: HistoryMetric? {
-        [.power, .load, .charge].first { metric in samples.contains { metric.value($0) != nil } }
-    }
-
-    var body: some View {
-        Section {
-            if let metric {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(metric.title)
-                        Spacer()
-                        if let summary = metric.summary(samples) {
-                            Text(summary)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-                    HistoryChart(samples: samples, metric: metric, range: .day, compact: true)
-                        .frame(height: 56)
-                }
-                .padding(.vertical, 2)
-            } else if hasLoaded {
-                Text("Squirrel records history while it runs. A chart appears here after a few minutes.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let latestEvent {
-                LabeledContent {
-                    Text(latestEvent.date, format: .relative(presentation: .named))
-                } label: {
-                    Label(latestEvent.kind.title, systemImage: latestEvent.kind.symbolName)
-                }
-            }
-
-            Button("Show Power History…") { appModel.showHistory(for: device) }
-        } header: {
-            HStack {
-                Text("Power History")
-                Spacer()
-                Text("Last 24 hours")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .textCase(nil)
-            }
-        }
-        .task(id: LoadKey(device: device.id, revision: history.revision)) {
-            samples = await history.samples(for: device.id, in: .day)
-            latestEvent = await history.events(for: device.id, limit: 1).first
-            hasLoaded = true
-        }
-    }
-
-    private struct LoadKey: Equatable {
-        let device: UUID
-        let revision: Int
-    }
-}
-
-// MARK: - History sheet
+// MARK: - History window
 
 /// The full history: a chart for each measurement this UPS reports, and the
-/// event log underneath.
-struct PowerHistorySheet: View {
-    @Environment(\.dismiss) private var dismiss
+/// event log underneath. Its own window, so browsing history never blocks
+/// the dashboard.
+struct PowerHistoryView: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var history: PowerHistory
@@ -288,16 +213,8 @@ struct PowerHistorySheet: View {
             }
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            Divider()
-            HStack {
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
-            }
-            .padding(16)
         }
-        .frame(minWidth: 620, idealWidth: 680, maxWidth: 720,
-               minHeight: 480, idealHeight: 700, maxHeight: 750)
+        .frame(minWidth: 560, idealWidth: 680, minHeight: 420, idealHeight: 700)
         .task(id: LoadKey(device: device?.id, range: range, revision: history.revision)) {
             await load()
         }
@@ -305,14 +222,11 @@ struct PowerHistorySheet: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Power History")
-                    .font(.title3.weight(.bold))
-                Text(device.map { "Power readings and events for \($0.displayName)." }
-                     ?? "Power readings and events for your UPS.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            // The window title already says Power History.
+            Text(device.map { "Power readings and events for \($0.displayName)." }
+                 ?? "Power readings and events for your UPS.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
                 if settings.devices.count > 1 {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct PowerScheduleView: View {
@@ -18,14 +19,10 @@ struct PowerScheduleView: View {
                         .lineSpacing(3).frame(maxWidth: 450, alignment: .leading)
                 }
                 Spacer(minLength: 0)
-                Button { showingHelp = true } label: {
-                    Image(systemName: "questionmark").font(.system(size: 16, weight: .medium))
-                        .frame(width: 34, height: 34)
-                        .background(.primary.opacity(0.05), in: Circle())
-                }
-                .buttonStyle(.plain).help("About power schedules")
-                .accessibilityLabel("About power schedules")
-                .popover(isPresented: $showingHelp, arrowEdge: .bottom) { ScheduleHelpView(service: service) }
+                HelpButton { showingHelp = true }
+                    .help("About power schedules")
+                    .accessibilityLabel("About power schedules")
+                    .popover(isPresented: $showingHelp, arrowEdge: .bottom) { ScheduleHelpView(service: service) }
             }
             .padding(.horizontal, 10)
 
@@ -33,7 +30,7 @@ struct PowerScheduleView: View {
                 if service.schedules.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "clock").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-                        Text("No schedules yet").font(SquirrelFont.sectionTitle)
+                        Text("No Schedules Yet").font(SquirrelFont.sectionTitle)
                         Text("Give your Mac a daily routine.").foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 26)
@@ -54,14 +51,10 @@ struct PowerScheduleView: View {
                 }
 
                 Button { openEditor(nil) } label: {
-                    Label("Add Schedule", systemImage: "plus.circle")
-                        .font(SquirrelFont.prominentAction)
-                        .frame(maxWidth: .infinity).frame(height: 62)
-                        .contentShape(RoundedRectangle(cornerRadius: 16))
+                    Label("Add Schedule…", systemImage: "plus")
                 }
-                .buttonStyle(.plain)
-                .scheduleSurface()
-                .padding(.top, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
                 .disabled(service.schedules.count >= 2)
                 .help(service.schedules.count >= 2 ? "Both macOS recurring slots are in use. Edit an existing schedule to change its action." : "Add a power schedule")
                 if service.schedules.count >= 2 {
@@ -91,14 +84,12 @@ struct PowerScheduleView: View {
                     .keyboardShortcut("r", modifiers: .command)
                 }
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
             .disabled(service.isApplying)
         }
         .padding(30)
         .frame(width: 650)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.82))
-        .background(.regularMaterial)
         .interactiveDismissDisabled(service.isApplying)
         .onAppear { service.clearError(); service.refresh() }
         .sheet(item: $editor) { session in
@@ -190,9 +181,7 @@ private struct ScheduleCard: View {
                 Button("Edit Schedule…", action: edit)
                 Button("Delete Schedule", role: .destructive, action: delete)
             } label: {
-                Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold))
-                    .frame(width: 30, height: 30)
-                    .background(.primary.opacity(0.045), in: Circle())
+                Image(systemName: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .accessibilityLabel("Options for \(rule.action.cardTitle) schedule")
@@ -266,22 +255,13 @@ struct ScheduleEditorSheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         sectionTitle("Repeat")
-                        HStack(spacing: 10) {
+                        Picker("Repeat schedule", selection: Binding(get: { repeatPreset }, set: selectPreset)) {
                             ForEach(ScheduleRepeatPreset.allCases) { preset in
-                                Button { selectPreset(preset) } label: {
-                                    Text(preset.rawValue).font(SquirrelFont.body)
-                                        .frame(maxWidth: .infinity).padding(.vertical, 9)
-                                        .contentShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(repeatPreset == preset ? Color.accentColor : .primary)
-                                .background(repeatPreset == preset ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.04), in: Capsule())
-                                .overlay { Capsule().strokeBorder(repeatPreset == preset ? Color.accentColor.opacity(0.65) : .clear) }
-                                .accessibilityAddTraits(repeatPreset == preset ? .isSelected : [])
+                                Text(preset.rawValue).tag(preset)
                             }
                         }
-                        .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Repeat schedule")
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
                         if repeatPreset == .custom {
                             HStack(spacing: 6) {
                                 ForEach(0..<7) { index in
@@ -343,8 +323,6 @@ struct ScheduleEditorSheet: View {
             .disabled(service.isApplying)
         }
         .frame(width: 580)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.82))
-        .background(.regularMaterial)
         .interactiveDismissDisabled(service.isApplying)
     }
 
@@ -555,6 +533,29 @@ private extension RepeatingPowerSchedule.Action {
         case .shutdown: return .red
         case .restart: return .secondary
         }
+    }
+}
+
+/// The standard round help button, which SwiftUI only offers from macOS 14.
+private struct HelpButton: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(title: "", target: context.coordinator, action: #selector(Coordinator.press))
+        button.bezelStyle = .helpButton
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.action = action
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
+        @objc func press() { action() }
     }
 }
 

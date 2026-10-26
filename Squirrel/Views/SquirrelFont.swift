@@ -14,8 +14,6 @@ enum SquirrelFont {
     static let footnote = Font.subheadline
     /// A sheet's one-line introduction under its title.
     static let intro = Font.title3
-    /// A large, full-width action such as Add Schedule.
-    static let prominentAction = Font.title3.weight(.medium)
     /// Dashboard card headings: macOS Connection, Power Management.
     static let cardHeading = Font.title3.weight(.semibold)
     /// Headings within sheets, schedule titles and times.

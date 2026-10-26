@@ -139,7 +139,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         entries.append(.separator("actions"))
         entries += devices.compactMap(alarmEntry)
         if devices.isEmpty {
-            entries.append(.action(id: "setup", title: "Set Up a UPS…", symbol: "plus") { [appModel] in
+            entries.append(.action(id: "setup", title: "Add UPS…", symbol: "plus") { [appModel] in
                 appModel.beginConnectionAssistant()
             })
         }
@@ -151,7 +151,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
                 appModel.showHistory()
             })
         }
-        entries.append(.action(id: "energy", title: "UPS Settings…", symbol: "slider.horizontal.3") {
+        entries.append(.action(id: "energy", title: "Open Energy Settings", symbol: "slider.horizontal.3") {
             Self.openEnergySettings()
         })
 

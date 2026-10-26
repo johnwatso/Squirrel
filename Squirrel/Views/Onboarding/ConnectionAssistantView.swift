@@ -79,7 +79,7 @@ struct ConnectionAssistantView: View {
             SquirrelAppIcon()
                 .frame(width: 104, height: 104)
 
-            Text("Connect your UPS")
+            Text("Connect Your UPS")
                 .font(SquirrelFont.assistantTitle)
                 .accessibilityAddTraits(.isHeader)
 
@@ -106,7 +106,7 @@ struct ConnectionAssistantView: View {
     private var findStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             AssistantHeader(
-                title: "Find your UPS",
+                title: "Find Your UPS",
                 subtitle: "Squirrel can search your network for compatible UPS servers, or you can enter an address manually."
             )
 
@@ -302,7 +302,7 @@ struct ConnectionAssistantView: View {
     private var manualStep: some View {
         VStack(alignment: .leading, spacing: 12) {
             AssistantHeader(
-                title: "Connect to your UPS",
+                title: "Connect to Your UPS",
                 subtitle: "Enter the details for your NUT server."
             )
 
@@ -382,7 +382,7 @@ struct ConnectionAssistantView: View {
     private var selectStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             AssistantHeader(
-                title: "Select your UPS",
+                title: "Select Your UPS",
                 subtitle: "Choose the UPS you'd like Squirrel to connect to."
             )
 
@@ -523,7 +523,7 @@ struct ConnectionAssistantView: View {
             successStep(
                 kind: .positive,
                 symbol: "checkmark",
-                title: "All set!",
+                title: "All Set!",
                 subtitle: "Your UPS is now connected and available in macOS."
             ) {
                 AssistantNoticeBox(
@@ -536,7 +536,7 @@ struct ConnectionAssistantView: View {
             successStep(
                 kind: .warning,
                 symbol: "exclamationmark",
-                title: "Connected to your UPS",
+                title: "Connected to Your UPS",
                 subtitle: "Squirrel is reading this UPS, but macOS isn't using it as a power source."
             ) {
                 AssistantNoticeBox(kind: .warning, title: "Native integration isn't active", detail: explanation)
@@ -545,7 +545,7 @@ struct ConnectionAssistantView: View {
             VStack(spacing: 12) {
                 resultGlyph(symbol: "xmark", tint: .red)
                 VStack(spacing: 4) {
-                    Text("Couldn't connect").font(SquirrelFont.assistantTitle)
+                    Text("Couldn't Connect").font(SquirrelFont.assistantTitle)
                     Text(message)
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -760,7 +760,7 @@ struct ConnectionAssistantView: View {
     private var finishedFooterButtons: some View {
         switch assistant.outcome {
         case .published:
-            Button("Open UPS Settings") { MenuBarMenu.openEnergySettings() }
+            Button("Open Energy Settings") { MenuBarMenu.openEnergySettings() }
                 .assistantSecondaryButton()
             Button("Done") { onFinish(assistant.connectedDevice) }
                 .assistantPrimaryButton()

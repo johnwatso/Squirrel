@@ -85,7 +85,6 @@ struct MacProtectionSection: View {
     @EnvironmentObject private var monitor: UPSMonitor
 
     let device: UPSDevice
-    @State private var showingProtectionDetails = false
 
     private var advice: PowerProfileAdvisor.Advice { appModel.powerProfileAdvice }
 
@@ -101,29 +100,17 @@ struct MacProtectionSection: View {
 
     var body: some View {
         VStack(spacing: 13) {
+            // A status, not a control: the action it used to hide is the
+            // Open Energy Settings button at the foot of the card.
             DashboardSectionHeading(title: "macOS Connection", symbol: "power.circle") {
-                Button { showingProtectionDetails = true } label: {
-                    HStack(spacing: 10) {
-                        Circle().fill(status.tint).frame(width: 9, height: 9)
-                        Text(status.title).foregroundStyle(DashboardPalette.secondary)
-                    }
-                    .font(SquirrelFont.body)
+                HStack(spacing: 10) {
+                    Circle().fill(status.tint).frame(width: 9, height: 9)
+                        .accessibilityHidden(true)
+                    Text(status.title).foregroundStyle(DashboardPalette.secondary)
                 }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showingProtectionDetails) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if appModel.protects(device), settings.preferences.preventSleepDuringOutage {
-                            Text("Squirrel prevents idle sleep during confirmed outages.")
-                                .font(.callout).foregroundStyle(DashboardPalette.secondary)
-                        }
-                        if showsSettingsButton {
-                            Button("UPS Settings…") { MenuBarMenu.openEnergySettings() }
-                        }
-                    }
-                    .padding(16)
-                }
-                .help("\(status.summary). Open UPS Settings or check sleep during outages.")
-                .accessibilityLabel("macOS Connection: \(status.title). UPS Settings")
+                .help(status.summary)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("macOS Connection: \(status.title)")
             }
             if appModel.protects(device) {
                 VStack(spacing: 0) {
@@ -152,17 +139,21 @@ struct MacProtectionSection: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !settings.preferences.publishPowerSource {
-                // The same switch as Settings ▸ "Share the UPS with macOS",
-                // which restarts monitoring so the UPS is published at once.
-                Button("Share with macOS") {
-                    settings.preferences.publishPowerSource = true
-                    monitor.restart()
+            HStack {
+                Spacer()
+                if showsSettingsButton {
+                    Button("Open Energy Settings") { MenuBarMenu.openEnergySettings() }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            } else if !appModel.protects(device), settings.devices.count > 1 {
-                Button("Share This UPS with macOS") { appModel.useForMacProtection(device) }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                if !settings.preferences.publishPowerSource {
+                    // The same switch as Settings ▸ "Share the UPS with macOS",
+                    // which restarts monitoring so the UPS is published at once.
+                    Button("Share with macOS") {
+                        settings.preferences.publishPowerSource = true
+                        monitor.restart()
+                    }
+                } else if !appModel.protects(device), settings.devices.count > 1 {
+                    Button("Share This UPS with macOS") { appModel.useForMacProtection(device) }
+                }
             }
         }
         .padding(.horizontal, 20)

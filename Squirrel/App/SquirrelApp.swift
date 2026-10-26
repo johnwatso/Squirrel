@@ -60,6 +60,16 @@ struct SquirrelApp: App {
         .windowToolbarStyle(.unified)
         .commands { SquirrelCommands(appModel: appModel) }
 
+        Window("Power History", id: AppModel.historyWindowID) {
+            PowerHistoryView()
+                .environmentObject(appModel)
+                .environmentObject(appModel.settings)
+                .environmentObject(appModel.history)
+                .onAppear { appModel.setWindow(.history, visible: true) }
+                .onDisappear { appModel.setWindow(.history, visible: false) }
+        }
+        .defaultSize(width: 680, height: 700)
+
         SwiftUI.Settings {
             PreferencesView()
                 .environmentObject(appModel)
@@ -96,6 +106,12 @@ struct MenuBarLifecycle: View {
                 openWindow(id: AppModel.connectionWindowID)
                 NSApp.activate(ignoringOtherApps: true)
                 appModel.shouldOpenConnectionWindow = false
+            }
+            .onReceive(appModel.$shouldOpenHistoryWindow) { shouldOpen in
+                guard shouldOpen else { return }
+                openWindow(id: AppModel.historyWindowID)
+                NSApp.activate(ignoringOtherApps: true)
+                appModel.shouldOpenHistoryWindow = false
             }
             .onReceive(appModel.$shouldOpenAssistantWindow) { shouldOpen in
                 guard shouldOpen else { return }

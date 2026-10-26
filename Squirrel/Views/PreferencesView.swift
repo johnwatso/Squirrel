@@ -152,7 +152,7 @@ private struct PowerSettingsView: View {
                         .foregroundStyle(integration.tint)
                         .labelStyle(.titleAndIcon)
                 }
-                Button("Open UPS Settings") { MenuBarMenu.openEnergySettings() }
+                Button("Open Energy Settings") { MenuBarMenu.openEnergySettings() }
                 if monitor.systemIntegrationUnavailable {
                     SettingsNote(
                         "This version of macOS is not accepting a UPS from Squirrel, so it cannot handle the shutdown itself.",
