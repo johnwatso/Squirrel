@@ -267,7 +267,11 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             }
             for item in offered {
                 submenu.append(.action(id: "\(device.id).\(item.command)", title: item.title, isEnabled: !monitor.isBusy(device)) { [appModel] in
-                    Task { await appModel.runCommand(item.command, titled: item.title, on: device) }
+                    if MenuBarPresentation.needsBatteryWarning(item.command) {
+                        appModel.requestBatteryTest(item, on: device)
+                    } else {
+                        Task { await appModel.runCommand(item.command, titled: item.title, on: device) }
+                    }
                 })
             }
         }

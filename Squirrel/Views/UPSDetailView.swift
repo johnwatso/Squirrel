@@ -276,8 +276,7 @@ private struct UPSIdentityHeader: View {
 }
 
 /// The battery self-test, for a UPS whose server offers one: how the last
-/// test went and a button to run another. Commands need a NUT sign-in, so
-/// without one the button opens the sign-in instead of hiding the test.
+/// test went and a button to run another, which always warns first.
 private struct SelfTestRow: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var monitor: UPSMonitor
@@ -300,16 +299,11 @@ private struct SelfTestRow: View {
                     if monitor.isBusy(device) {
                         ProgressView().controlSize(.small)
                     }
-                    if MenuBarPresentation.canRunCommands(on: device) {
-                        Button(test.title) {
-                            Task { await appModel.runCommand(test.command, titled: test.title, on: device) }
-                        }
+                    // Always the same button: the warning that follows asks for
+                    // a NUT sign-in itself when none is saved.
+                    Button(test.title) { appModel.requestBatteryTest(test, on: device) }
                         .disabled(monitor.isBusy(device) || state.reading == nil)
-                        .help("The UPS briefly runs on its battery to check it. Your equipment stays powered.")
-                    } else {
-                        Button("Sign In to Test…") { appModel.beginSigningIn(device) }
-                            .help("Running a self-test needs a NUT username and password that the server allows to send commands.")
-                    }
+                        .help("Checks the battery by running the UPS on it briefly. You'll be warned first.")
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)

@@ -31,6 +31,12 @@ struct UPSManagementView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
+        // Every battery test, from the menu bar or this window, is confirmed here.
+        .sheet(item: $appModel.batteryTestRequest) { request in
+            if let device = settings.device(id: request.deviceID) {
+                BatteryTestSheet(device: device, command: request.command)
+            }
+        }
         .onAppear(perform: validateSelection)
         .onChange(of: settings.devices) { _ in validateSelection() }
         .confirmationDialog(
@@ -183,16 +189,23 @@ struct UPSManagementView: View {
             signedIn: true
         )
         if !offered.isEmpty {
+            let signedIn = MenuBarPresentation.canRunCommands(on: device)
             Menu("UPS Commands") {
-                if MenuBarPresentation.canRunCommands(on: device) {
-                    ForEach(offered, id: \.command) { item in
-                        Button(item.title) {
+                // Battery tests are always offered: their warning asks for a
+                // sign-in itself. Other commands need one saved first.
+                ForEach(offered.filter { signedIn || MenuBarPresentation.needsBatteryWarning($0.command) }, id: \.command) { item in
+                    Button(item.title) {
+                        if MenuBarPresentation.needsBatteryWarning(item.command) {
+                            appModel.requestBatteryTest(item, on: device)
+                        } else {
                             Task { await appModel.runCommand(item.command, titled: item.title, on: device) }
                         }
-                        .disabled(monitor.isBusy(device))
                     }
-                } else {
-                    Button("Sign In to Run Commands…") { appModel.beginSigningIn(device) }
+                    .disabled(monitor.isBusy(device))
+                }
+                if !signedIn, offered.contains(where: { !MenuBarPresentation.needsBatteryWarning($0.command) }) {
+                    Divider()
+                    Button("Sign In to Run Other Commands…") { appModel.beginSigningIn(device) }
                 }
             }
         }
@@ -241,3 +254,131 @@ struct UPSManagementView: View {
         validateSelection()
     }
 }
+
+/// The warning before a battery test or calibration. Running one puts the
+/// load on the battery on purpose, and a battery that fails partway through
+/// cuts power to this Mac with no clean shutdown, so this says so plainly and
+/// leaves Cancel as the safe choice. A UPS without a saved NUT sign-in asks
+/// for one here rather than sending people to the connection editor.
+struct BatteryTestSheet: View {
+    @EnvironmentObject private var appModel: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    let device: UPSDevice
+    let command: MenuBarPresentation.OfferedCommand
+
+    @State private var username = ""
+    @State private var password = ""
+    @State private var isRunning = false
+    @State private var failure: (title: String, message: String)?
+
+    private var isCalibration: Bool { command.command == "calibrate.start" }
+    private var needsSignIn: Bool { !MenuBarPresentation.canRunCommands(on: device) }
+    private var actionTitle: String { isCalibration ? "Start Calibration" : "Run Self-Test" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(isCalibration ? "Calibrate Battery Runtime?" : "Run a Battery Self-Test?")
+                .font(.title2.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
+
+            Text(isCalibration
+                 ? "“\(device.displayName)” will run on its battery until it is nearly empty, to measure how long it really lasts. This can take an hour or more, and the UPS has little in reserve until it recharges."
+                 : "“\(device.displayName)” will switch to its battery for a short time to check it, then back to mains power. Your equipment normally stays powered throughout.")
+                .fixedSize(horizontal: false, vertical: true)
+
+            warning
+
+            if needsSignIn {
+                signIn
+            }
+
+            if let failure {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(failure.title).fontWeight(.semibold)
+                        Text(failure.message).foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+                }
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 10) {
+                Spacer()
+                if isRunning { ProgressView().controlSize(.small) }
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                // Deliberately not the default button: Return must not start it.
+                Button(actionTitle, action: run)
+                    .disabled(isRunning || (needsSignIn && username.trimmingCharacters(in: .whitespaces).isEmpty))
+            }
+            .padding(.top, 4)
+        }
+        .padding(24)
+        .frame(width: 480)
+        .interactiveDismissDisabled(isRunning)
+    }
+
+    private var warning: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("If the battery fails, this Mac will shut down abruptly.")
+                    .fontWeight(.semibold)
+                Text("A worn battery can give out during the test. The UPS would then cut power to this Mac and everything else plugged into it straight away, with no chance to shut down properly. Save your work before you start.")
+                if MenuBarPresentation.mayOutlastShutdownRules(command.command) {
+                    Text("It can also run long enough for macOS to start its own shutdown under your UPS rules.")
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var signIn: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your NUT server only runs tests for a user allowed to send it commands.")
+                .fixedSize(horizontal: false, vertical: true)
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                GridRow {
+                    Text("Username").foregroundStyle(.secondary)
+                    TextField("Username", text: $username).labelsHidden().autocorrectionDisabled()
+                }
+                GridRow {
+                    Text("Password").foregroundStyle(.secondary)
+                    SecureField("Password", text: $password).labelsHidden()
+                }
+            }
+            .textFieldStyle(.roundedBorder)
+            Text("Saved to this UPS's connection once the server accepts the test. Passwords are stored in your login Keychain.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .disabled(isRunning)
+    }
+
+    private func run() {
+        isRunning = true
+        failure = nil
+        let typed = needsSignIn ? username.trimmingCharacters(in: .whitespaces) : nil
+        Task {
+            do {
+                try await appModel.runBatteryTest(command.command, on: device, username: typed, password: needsSignIn ? password : nil)
+                dismiss()
+            } catch {
+                let refusal = MenuBarPresentation.commandRefusal(error, commandTitle: actionTitle, username: typed ?? device.username)
+                failure = (refusal.title, refusal.message)
+            }
+            isRunning = false
+        }
+    }
+}
+

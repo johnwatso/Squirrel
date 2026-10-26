@@ -192,11 +192,12 @@ enum MenuBarPresentation {
         func offer(_ command: String, _ title: String, when condition: Bool = true) {
             if condition, supported.contains(command) { commands.append(OfferedCommand(command: command, title: title)) }
         }
-        offer("test.battery.start.quick", "Run Quick Self-Test")
-        offer("test.battery.start", "Run Self-Test", when: !supported.contains("test.battery.start.quick"))
-        offer("test.battery.start.deep", "Run Deep Self-Test")
+        // The ellipsis: battery tests and calibration ask for confirmation.
+        offer("test.battery.start.quick", "Run Quick Self-Test…")
+        offer("test.battery.start", "Run Self-Test…", when: !supported.contains("test.battery.start.quick"))
+        offer("test.battery.start.deep", "Run Deep Self-Test…")
         offer("test.battery.stop", "Stop Self-Test", when: testMayBeRunning)
-        offer("calibrate.start", "Calibrate Battery Runtime", when: !calibrating)
+        offer("calibrate.start", "Calibrate Battery Runtime…", when: !calibrating)
         offer("calibrate.stop", "Stop Calibration", when: calibrating)
         offer("test.panel.start", "Test Lights and Beeper")
         offer("beeper.disable", "Turn Off Beeper", when: beeper != "disabled")
@@ -210,12 +211,26 @@ enum MenuBarPresentation {
     /// shows the test with a way to sign in.
     static func selfTestCommand(supported: [String]) -> OfferedCommand? {
         if supported.contains("test.battery.start.quick") {
-            return OfferedCommand(command: "test.battery.start.quick", title: "Run Self-Test")
+            return OfferedCommand(command: "test.battery.start.quick", title: "Run Self-Test…")
         }
         if supported.contains("test.battery.start") {
-            return OfferedCommand(command: "test.battery.start", title: "Run Self-Test")
+            return OfferedCommand(command: "test.battery.start", title: "Run Self-Test…")
         }
         return nil
+    }
+
+    /// Commands that put the load on the battery on purpose. A battery that
+    /// fails partway through drops the power to this Mac, so these are only
+    /// ever run after the warning, wherever they are chosen.
+    static func needsBatteryWarning(_ command: String) -> Bool {
+        command.hasPrefix("test.battery.start") || command == "calibrate.start"
+    }
+
+    /// Tests long enough that macOS's own UPS shutdown rules may fire before
+    /// they finish. A quick test is over in seconds; the plain test's length
+    /// is up to the UPS, so it isn't counted here.
+    static func mayOutlastShutdownRules(_ command: String) -> Bool {
+        command == "test.battery.start.deep" || command == "calibrate.start"
     }
 
     /// How the last self-test went, in a word or two, from `ups.test.result`.
