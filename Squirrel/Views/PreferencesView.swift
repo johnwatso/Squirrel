@@ -94,12 +94,13 @@ private struct NotificationSettingsView: View {
         Form {
             Section {
                 Toggle("Show notifications", isOn: notificationsBinding)
-                Group {
+                // Only offered while notifications are on, as System Settings
+                // does with an app's notification options.
+                if settings.preferences.showNotifications {
                     Toggle("Mains power lost or restored", isOn: $settings.preferences.notifyPowerChanges)
                     Toggle("Low battery", isOn: $settings.preferences.notifyLowBattery)
                     Toggle("UPS or NUT server unavailable", isOn: $settings.preferences.notifyConnectionProblems)
                 }
-                .disabled(!settings.preferences.showNotifications)
                 LabeledContent("Permission", value: notifications.statusDescription)
                 if settings.preferences.showNotifications, notifications.authorizationStatus == .notDetermined {
                     SettingsNote("Notification setup is incomplete. Allow notifications to receive UPS alerts.", symbol: "exclamationmark.circle", tint: .orange)
