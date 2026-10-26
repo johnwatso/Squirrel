@@ -3,7 +3,8 @@
 A native macOS menu bar app that makes a **network UPS behave like a USB UPS**.
 Squirrels hoard **NUT**s.
 
-Status: investigation complete, nothing built yet. Last updated 2026-10-22.
+Status: the investigation below became Squirrel, which now ships this design. Kept as the
+record of why it works this way. Last updated 2026-10-27.
 
 ---
 

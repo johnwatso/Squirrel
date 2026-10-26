@@ -165,6 +165,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // in Info.plist, because a stale copy in /Applications carries the old plist.
         ProcessInfo.processInfo.disableAutomaticTermination("Squirrel publishes the Mac's UPS power source")
 
+        #if DEBUG
+        // For screenshots: `-SquirrelAppearance Dark` (or `Light`) forces every
+        // window's appearance without changing the system's. Documented in
+        // Documentation/UI-Verification.md.
+        switch UserDefaults.standard.string(forKey: "SquirrelAppearance") {
+        case "Dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        case "Light": NSApp.appearance = NSAppearance(named: .aqua)
+        default: break
+        }
+        #endif
+
         guard let appModel, NSClassFromString("XCTestCase") == nil else { return }
         MainActor.assumeIsolated {
             let lifecycle = NSHostingView(rootView: MenuBarLifecycle()

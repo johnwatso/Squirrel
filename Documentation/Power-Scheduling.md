@@ -26,6 +26,9 @@ restart or shutdown rule**. Each rule has a weekday mask and a local wall-clock
 time. Three independently recurring rules as depicted in the reference cannot
 be represented by this system facility. The card list exposes the two real slots, with a dedicated Add/Edit sheet,
 native time picker, recurrence presets, custom weekdays and per-rule enable/disable.
+The editor is a standard macOS sheet, with Cancel and Add/Save at its foot, and
+its help opens in a popover rather than a further sheet. Deleting a rule asks
+first, because it changes the Mac's own schedule.
 The editor disables actions belonging to an occupied slot. Wake, startup and
 combined startup/wake remain explicit choices within the same slot. Disabled rules
 are saved as editor drafts only; they do not execute and do not supersede an

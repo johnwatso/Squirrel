@@ -302,3 +302,30 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
   Verified the built app with the sidebar visible and collapsed, and opened
   the picker from the relocated image. Debug build passed without warnings.
 - Capture: `Visual-Verification/header-illustration-right.jpg`.
+
+## GUI audit against the macOS HIG — 27 October 2026
+
+- High: the schedule editor uses the standard sheet layout; schedule help is a
+  popover, not a sheet on a sheet; `SquirrelFont` maps onto system text styles;
+  dashboard cards, dividers and secondary text use system colours and strengthen
+  under Increase Contrast; UPSes are managed from the sidebar only.
+- Medium: the toolbar menu is "Actions" without Settings…; one name per action
+  (Add UPS…, Open Energy Settings, Show Power History); title-case headings;
+  standard schedule controls; the macOS Connection status is plain text with a
+  visible Open Energy Settings button; Power History is its own window.
+- Low: 760 pt default window height; the window title names the selected UPS;
+  three Settings panes that size to their content; Add UPS… at the top of the
+  menu bar menu; deleting a schedule asks first; no arrows on assistant buttons.
+  Notification options hide while notifications are off.
+- Resizing Settings exposed a crash: `pmset` was awaited with `waitUntilExit`,
+  which spins the main run loop and re-entered AppKit's update cycle. Both
+  `pmset` helpers now wait on a termination handler; switching panes repeatedly
+  was stable afterwards.
+- Every stage built and passed the full test suite, and was inspected in an
+  isolated copy with publishing and notifications overridden off. Deleting a
+  schedule was not exercised, to avoid writing a real macOS schedule.
+- README previews were captured from the current build with the user's own
+  settings while no other copy was running, so macOS Connection shows its real
+  state. Debug builds take `-SquirrelAppearance Dark` (or `Light`) to force every
+  window's appearance without changing the system's. Captures:
+  `Images/overview-light.png` and `Images/overview-dark.png`.

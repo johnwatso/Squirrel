@@ -10,6 +10,8 @@ are unavailable. They do not contact another application's feed.
 
 Before the first GitHub release:
 
+0. Set `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml` for the
+   release (the development value is 0.1.0, build 1) and regenerate the project.
 1. Generate a **Squirrel-specific** EdDSA signing key with Sparkle's
    `generate_keys` tool. Keep the private key in the release signing environment
    or Keychain, outside this repository.
