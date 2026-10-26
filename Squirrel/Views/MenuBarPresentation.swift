@@ -204,6 +204,35 @@ enum MenuBarPresentation {
         return commands
     }
 
+    /// The one battery self-test the window offers: a quick test where the
+    /// UPS has one, otherwise its plain test. Whether the user is signed in
+    /// to run it is a separate question, so a UPS that can be tested still
+    /// shows the test with a way to sign in.
+    static func selfTestCommand(supported: [String]) -> OfferedCommand? {
+        if supported.contains("test.battery.start.quick") {
+            return OfferedCommand(command: "test.battery.start.quick", title: "Run Self-Test")
+        }
+        if supported.contains("test.battery.start") {
+            return OfferedCommand(command: "test.battery.start", title: "Run Self-Test")
+        }
+        return nil
+    }
+
+    /// How the last self-test went, in a word or two, from `ups.test.result`.
+    /// Drivers word it differently, so known phrases are matched loosely and
+    /// anything else is shown as the UPS reported it.
+    static func selfTestResult(_ reading: UPSReading?) -> String? {
+        guard let raw = reading?.value("ups.test.result") else { return nil }
+        let result = raw.lowercased()
+        if result.contains("progress") { return "In progress" }
+        if result.contains("no test") || result.contains("none") { return "Not run yet" }
+        if result.contains("abort") { return "Stopped" }
+        if result.contains("warning") { return "Passed with warnings" }
+        if result.contains("fail") || result.contains("error") { return "Failed" }
+        if result.contains("pass") || result == "ok" { return "Passed" }
+        return raw.prefix(1).uppercased() + raw.dropFirst()
+    }
+
     /// What to tell the user when the server turns a command down, and whether
     /// changing the sign-in could fix it.
     static func commandRefusal(_ error: Error, commandTitle: String, username: String?) -> (title: String, message: String, offersSignIn: Bool) {

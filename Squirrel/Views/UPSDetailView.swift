@@ -67,6 +67,7 @@ struct UPSDetailView: View {
                         UPSMeasurements(reading: reading, isLive: isLive)
                             .padding(12)
                     }
+                    SelfTestRow(device: device, reading: reading)
                     NameSuggestionRow(device: device, reading: reading)
                         .padding(.horizontal, 20)
                     if let trouble = troubleMessage {
@@ -272,6 +273,52 @@ private struct UPSIdentityHeader: View {
         let conditions = UPSStatusPresentation.conditions(for: reading.status)
         return ([UPSStatusPresentation.headline(for: reading.status)] + conditions).joined(separator: " · ")
     }
+}
+
+/// The battery self-test, for a UPS whose server offers one: how the last
+/// test went and a button to run another. Commands need a NUT sign-in, so
+/// without one the button opens the sign-in instead of hiding the test.
+private struct SelfTestRow: View {
+    @EnvironmentObject private var appModel: AppModel
+    @EnvironmentObject private var monitor: UPSMonitor
+
+    let device: UPSDevice
+    let reading: UPSReading?
+
+    var body: some View {
+        if let test = MenuBarPresentation.selfTestCommand(supported: monitor.commands(for: device)) {
+            VStack(spacing: 0) {
+                DashboardDivider()
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Battery self-test")
+                        Text(MenuBarPresentation.selfTestResult(reading).map { "Last result: \($0)" } ?? "No result reported")
+                            .font(SquirrelFont.caption)
+                            .foregroundStyle(DashboardPalette.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    if monitor.isBusy(device) {
+                        ProgressView().controlSize(.small)
+                    }
+                    if MenuBarPresentation.canRunCommands(on: device) {
+                        Button(test.title) {
+                            Task { await appModel.runCommand(test.command, titled: test.title, on: device) }
+                        }
+                        .disabled(monitor.isBusy(device) || state.reading == nil)
+                        .help("The UPS briefly runs on its battery to check it. Your equipment stays powered.")
+                    } else {
+                        Button("Sign In to Test…") { appModel.beginSigningIn(device) }
+                            .help("Running a self-test needs a NUT username and password that the server allows to send commands.")
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .accessibilityElement(children: .contain)
+            }
+        }
+    }
+
+    private var state: UPSConnectionState { monitor.state(for: device) }
 }
 
 /// Offers a friendlier name, once, for a UPS still called by its model code

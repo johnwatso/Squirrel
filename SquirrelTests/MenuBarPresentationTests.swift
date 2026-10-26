@@ -153,6 +153,23 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertEqual(titles, ["Run Self-Test"])
     }
 
+    func testTheWindowOffersOneSelfTestWhateverTheSignIn() {
+        XCTAssertEqual(MenuBarPresentation.selfTestCommand(supported: everyCommand)?.command, "test.battery.start.quick")
+        XCTAssertEqual(MenuBarPresentation.selfTestCommand(supported: ["test.battery.start", "load.off"])?.command, "test.battery.start")
+        XCTAssertNil(MenuBarPresentation.selfTestCommand(supported: ["load.off", "load.on", "shutdown.reboot"]))
+    }
+
+    func testSelfTestResultsReadPlainly() {
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "done and passed"])), "Passed")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "Done and warning"])), "Passed with warnings")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "Done and error"])), "Failed")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "In progress"])), "In progress")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "No test initiated"])), "Not run yet")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "aborted"])), "Stopped")
+        XCTAssertEqual(MenuBarPresentation.selfTestResult(reading("OL", ["ups.test.result": "result unknown"])), "Result unknown")
+        XCTAssertNil(MenuBarPresentation.selfTestResult(reading("OL")))
+    }
+
     func testPowerStatusColoursFollowTheUPSsOwnSeverity() {
         XCTAssertEqual(MenuBarPresentation.powerStatus(for: state("OL")), .init(title: "On mains power", symbol: "bolt.fill", tone: .positive))
         XCTAssertEqual(MenuBarPresentation.powerStatus(for: state("OB", charge: 50)), .init(title: "Running on battery", symbol: "battery.50", tone: .caution))

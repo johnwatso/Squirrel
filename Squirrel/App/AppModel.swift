@@ -259,8 +259,8 @@ final class AppModel: ObservableObject {
         connectionEditor?.showsAuthentication = true
     }
 
-    /// Runs a UPS command from the menu bar, which only offers them for a UPS
-    /// with a saved sign-in. A refusal is explained on its own rather than
+    /// Runs a UPS command from the menu bar or the window, which only offer
+    /// them for a UPS with a saved sign-in. A refusal is explained on its own rather than
     /// shown as the UPS having failed.
     func runCommand(_ command: String, titled title: String, on device: UPSDevice) async {
         guard MenuBarPresentation.canRunCommands(on: device) else { return }

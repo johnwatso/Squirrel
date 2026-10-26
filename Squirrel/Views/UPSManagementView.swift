@@ -163,12 +163,39 @@ struct UPSManagementView: View {
             }
         }
         Button("Connection…") { appModel.editConnection(device) }
+        commandsMenu(for: device)
         if settings.devices.count > 1, !device.publishesToSystem {
             Button("Share with macOS") { appModel.useForMacProtection(device) }
         }
         Button("Show Power History") { appModel.showHistory(for: device) }
         Divider()
         Button("Remove UPS…", role: .destructive) { deviceToRemove = device }
+    }
+
+    /// The same commands as the menu bar's Controls submenu. Without a NUT
+    /// sign-in they can't run, so the submenu offers the sign-in instead of
+    /// disappearing, as long as the UPS has something worth signing in for.
+    @ViewBuilder
+    private func commandsMenu(for device: UPSDevice) -> some View {
+        let offered = MenuBarPresentation.offeredCommands(
+            supported: monitor.commands(for: device),
+            reading: monitor.state(for: device).reading,
+            signedIn: true
+        )
+        if !offered.isEmpty {
+            Menu("UPS Commands") {
+                if MenuBarPresentation.canRunCommands(on: device) {
+                    ForEach(offered, id: \.command) { item in
+                        Button(item.title) {
+                            Task { await appModel.runCommand(item.command, titled: item.title, on: device) }
+                        }
+                        .disabled(monitor.isBusy(device))
+                    }
+                } else {
+                    Button("Sign In to Run Commands…") { appModel.beginSigningIn(device) }
+                }
+            }
+        }
     }
 
     private func beginRename(_ device: UPSDevice) {
