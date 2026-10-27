@@ -82,7 +82,7 @@ enum MenuBarPresentation {
         return rows
     }
 
-    /// The macOS connection as one menu line: the Personal Hotspot symbol
+    /// Outage protection as one menu line: the Personal Hotspot symbol
     /// while macOS has the UPS, slashed while it doesn't. Green "Connected to
     /// macOS" only when the status is active: a reachable UPS is not enough.
     static func protectionLine(for status: MacProtectionStatus) -> StatusLine {

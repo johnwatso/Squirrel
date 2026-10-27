@@ -51,7 +51,7 @@ You'll need macOS 13 or later, and a NUT server for your UPS that this Mac is al
 
 ## How it works
 
-Squirrel polls the NUT server and publishes the selected UPS through IOKit, the same way macOS's own USB UPS support does. macOS owns the shutdown policy; set your thresholds under **System Settings → Energy → UPS Options**. Squirrel's **macOS Connection** card shows whether macOS sees the UPS and which rules are set.
+Squirrel polls the NUT server and publishes the selected UPS through IOKit, the same way macOS's own USB UPS support does. macOS owns the shutdown policy; set your thresholds under **System Settings → Energy → UPS Options**. Squirrel's **Outage Protection** card shows whether macOS sees the UPS, which rules are set, and whether the Mac restarts when power returns.
 
 A few things to know:
 

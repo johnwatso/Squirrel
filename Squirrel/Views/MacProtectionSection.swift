@@ -102,7 +102,7 @@ struct MacProtectionSection: View {
         VStack(spacing: 13) {
             // A status, not a control: the action it used to hide is the
             // Open Energy Settings button at the foot of the card.
-            DashboardSectionHeading(title: "macOS Connection", symbol: "power.circle") {
+            DashboardSectionHeading(title: "Outage Protection", symbol: "power.circle") {
                 HStack(spacing: 10) {
                     Circle().fill(status.tint).frame(width: 9, height: 9)
                         .accessibilityHidden(true)
@@ -110,7 +110,7 @@ struct MacProtectionSection: View {
                 }
                 .help(status.summary)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("macOS Connection: \(status.title)")
+                .accessibilityLabel("Outage Protection: \(status.title)")
             }
             // What happens through an outage, in order: sleep, shutdown, then
             // starting up again. Restarting is the Mac's own setting, so it

@@ -194,7 +194,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         return entries
     }
 
-    /// The macOS connection, from the same evaluation as the window. Shown
+    /// Outage protection, from the same evaluation as the window. Shown
     /// whenever a UPS is set up, so "Not shared with macOS" is visible too.
     private func protectionEntries() -> [MenuEntry] {
         guard let device = appModel.primaryDevice else { return [] }
