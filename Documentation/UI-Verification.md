@@ -329,3 +329,18 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
   state. Debug builds take `-SquirrelAppearance Dark` (or `Light`) to force every
   window's appearance without changing the system's. Captures:
   `Images/overview-light.png` and `Images/overview-dark.png`.
+
+## Setup welcome screen and README previews — 28 October 2026
+
+- The welcome screen was rebuilt to the supplied render: the mascot, "Connect
+  Your UPS", and Battery & Runtime, Power Protection and Power History rows in
+  one container, with Not Now and Continue. The window is "Set Up Squirrel".
+  Light and dark were checked offscreen first, then in John's Xcode build.
+- Continue led to Find Your UPS. The search found the real UPS, and setup
+  finished with it shared with macOS (`pmset -g ps` lists one UniFi UPS 2U).
+  Not Now uses the same exit as Cancel and was not clicked.
+- README previews were retaken from that build at 731 × 842 pt with the window
+  focused, in the system's light and then dark appearance. They show Power
+  Protection "Active" and a single set schedule. Captures:
+  `Images/overview-light.png`, `Images/overview-dark.png` and
+  `Visual-Verification/welcome-light.png`.

@@ -26,7 +26,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="Documentation/Images/overview-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="Documentation/Images/overview-light.png">
-    <img src="Documentation/Images/overview-light.png" width="560" alt="Squirrel's main window showing a UPS on mains power, its battery, runtime and load, and its connection to macOS">
+    <img src="Documentation/Images/overview-light.png" width="560" alt="Squirrel's main window showing a UPS on mains power, its battery, runtime and load, its Power Protection settings and its power schedule">
   </picture>
 </p>
 
