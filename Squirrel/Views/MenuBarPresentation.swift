@@ -194,6 +194,17 @@ enum MenuBarPresentation {
         return commands
     }
 
+    /// What a NUT sign-in would let Squirrel do for a UPS whose server offers
+    /// these commands, in the words the menus use. Empty when it offers none
+    /// Squirrel sends, so the connection window can say so plainly.
+    static func signInUnlocks(supported: [String]) -> [String] {
+        var unlocks: [String] = []
+        if supported.contains("beeper.mute") { unlocks.append("Silence Alarm") }
+        if supported.contains("beeper.disable") || supported.contains("beeper.enable") { unlocks.append("Turn Beeper On or Off") }
+        if supported.contains("test.panel.start") { unlocks.append("Test Lights and Beeper") }
+        return unlocks
+    }
+
     /// What to tell the user when the server turns a command down, and whether
     /// changing the sign-in could fix it.
     static func commandRefusal(_ error: Error, commandTitle: String, username: String?) -> (title: String, message: String, offersSignIn: Bool) {

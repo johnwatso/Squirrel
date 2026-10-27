@@ -70,6 +70,16 @@ struct UPSManagementView: View {
         .navigationTitle(selectedDevice?.displayName ?? "Squirrel")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                // This UPS's server and NUT sign-in. Not app Settings, which
+                // stay in the app menu.
+                Button {
+                    if let device = selectedDevice { appModel.editConnection(device) }
+                } label: {
+                    Label("Connection Settings", systemImage: "gearshape")
+                }
+                .disabled(selectedDevice == nil)
+                .help("Connection Settings")
+
                 // App-wide Settings… lives in the app menu (⌘,), so this menu
                 // holds only what acts on the window and its selected UPS.
                 Menu {

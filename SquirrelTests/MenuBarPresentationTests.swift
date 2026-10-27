@@ -145,6 +145,13 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertEqual(calibrating, ["Test Lights and Beeper", "Turn On Beeper"], "Not even the stop commands")
     }
 
+    func testSignInSaysWhatItUnlocks() {
+        XCTAssertEqual(MenuBarPresentation.signInUnlocks(supported: everyCommand),
+                       ["Silence Alarm", "Turn Beeper On or Off", "Test Lights and Beeper"])
+        // The UniFi UPS 2U advertises only these, none of which Squirrel sends.
+        XCTAssertEqual(MenuBarPresentation.signInUnlocks(supported: ["test.battery.start", "load.off", "load.on", "shutdown.reboot"]), [])
+    }
+
     func testPowerStatusColoursFollowTheUPSsOwnSeverity() {
         XCTAssertEqual(MenuBarPresentation.powerStatus(for: state("OL")), .init(title: "On mains power", symbol: "bolt.fill", tone: .positive))
         XCTAssertEqual(MenuBarPresentation.powerStatus(for: state("OB", charge: 50)), .init(title: "Running on battery", symbol: "battery.50", tone: .caution))
