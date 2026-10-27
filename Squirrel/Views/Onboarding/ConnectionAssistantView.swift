@@ -392,8 +392,12 @@ struct ConnectionAssistantView: View {
                         .onSubmit(submitManualEntry)
                 }
 
-                Section {
-                    DisclosureRow("Authentication (optional)", isExpanded: $assistant.showsAuthentication) {
+                // Setup never asks for a sign-in up front: most servers share
+                // readings without one, and the Connection window takes one
+                // later. These appear only once the server has said it needs
+                // one, which is the only case setup can't finish without.
+                if assistant.showsAuthentication {
+                    Section {
                         TextField("Username", text: $assistant.username, prompt: Text("e.g. nutadmin"))
                             .focused($focusedField, equals: .username)
                             .disableAutocorrection(true)
@@ -401,11 +405,13 @@ struct ConnectionAssistantView: View {
                             .focused($focusedField, equals: .password)
                             .onSubmit(submitManualEntry)
                         defaultCredentialsMenu
+                    } header: {
+                        Text("Sign-In")
+                    } footer: {
+                        Text("This server only shares readings with a signed-in user. Passwords are stored in your login Keychain.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                } footer: {
-                    Text("Leave this closed if your NUT server allows access without a sign-in. Passwords are stored in your login Keychain.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
 
                 Section {
@@ -449,8 +455,8 @@ struct ConnectionAssistantView: View {
     /// A `Form` has no intrinsic height, so the step gives it one that follows
     /// which disclosures are open.
     private var formHeight: CGFloat {
-        var height: CGFloat = 200
-        if assistant.showsAuthentication { height += 136 }
+        var height: CGFloat = 130
+        if assistant.showsAuthentication { height += 190 }
         if assistant.showsAdvanced { height += 50 }
         return height
     }
