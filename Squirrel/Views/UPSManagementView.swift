@@ -31,8 +31,16 @@ struct UPSManagementView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: appModel.powerSchedule) }
-        .onAppear(perform: validateSelection)
+        .onAppear {
+            validateSelection()
+            columnVisibility = Self.sidebarVisibility(forDeviceCount: settings.devices.count)
+        }
         .onChange(of: settings.devices) { _ in validateSelection() }
+        // Only when the count crosses one, so the sidebar button still wins
+        // in between: adding a second UPS brings the list back to choose from.
+        .onChange(of: settings.devices.count > 1) { hasSeveral in
+            withAnimation { columnVisibility = hasSeveral ? .all : .detailOnly }
+        }
         .confirmationDialog(
             "Remove “\(deviceToRemove?.displayName ?? "this UPS")”?",
             isPresented: Binding(get: { deviceToRemove != nil }, set: { if !$0 { deviceToRemove = nil } }),
@@ -228,6 +236,12 @@ struct UPSManagementView: View {
     }
 
     // MARK: - Selection
+
+    /// One UPS needs no list to choose from, so its window opens on the
+    /// dashboard alone; the toolbar's sidebar button still shows it.
+    static func sidebarVisibility(forDeviceCount count: Int) -> NavigationSplitViewVisibility {
+        count > 1 ? .all : .detailOnly
+    }
 
     private var selectedDevice: UPSDevice? {
         selectedDeviceID.flatMap { id in settings.devices.first { $0.id == id } }
