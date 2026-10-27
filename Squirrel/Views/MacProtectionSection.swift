@@ -112,8 +112,11 @@ struct MacProtectionSection: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("macOS Connection: \(status.title)")
             }
-            if appModel.protects(device) {
-                VStack(spacing: 0) {
+            // What happens through an outage, in order: sleep, shutdown, then
+            // starting up again. Restarting is the Mac's own setting, so it
+            // shows whether or not this UPS is shared with macOS.
+            VStack(spacing: 0) {
+                if appModel.protects(device) {
                     DashboardRow(title: "Sleep on UPS power", value: sleepDescription)
                         .help(settings.preferences.preventSleepDuringOutage ? "Squirrel prevents idle sleep during confirmed outages." : "macOS controls sleep while on UPS power.")
                     if advice.didReadThresholds {
@@ -130,9 +133,12 @@ struct MacProtectionSection: View {
                     } else {
                         protectionRow("Automatic shutdown", "Unavailable")
                     }
+                    DashboardDivider().padding(.horizontal, 18)
                 }
-                .dashboardCard(radius: 10)
+                DashboardRow(title: "Restart after power failure", value: restartDescription)
+                    .help("Whether this Mac starts up again by itself when power returns. Change it in Squirrel's Power settings.")
             }
+            .dashboardCard(radius: 10)
             if let explanation = status.explanation {
                 Text(explanation)
                     .foregroundStyle(DashboardPalette.secondary)
@@ -170,6 +176,11 @@ struct MacProtectionSection: View {
     private func protectionRow(_ title: String, _ value: String) -> some View {
         DashboardDivider().padding(.horizontal, 18)
         DashboardRow(title: title, value: value)
+    }
+
+    private var restartDescription: String {
+        guard advice.autoRestartSupported == true, let enabled = advice.autoRestartEnabled else { return "Unavailable" }
+        return enabled ? "On" : "Off"
     }
 
     private var sleepDescription: String {

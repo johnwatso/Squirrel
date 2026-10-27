@@ -610,7 +610,6 @@ struct DashboardSectionHeading<Trailing: View>: View {
 /// Dashboard presentation only. Schedule editing and system operations remain
 /// in the existing PowerScheduleView and PowerScheduleService.
 private struct DashboardPowerManagementSection: View {
-    @EnvironmentObject private var appModel: AppModel
     @ObservedObject var service: PowerScheduleService
     @State private var showingSchedule = false
 
@@ -618,8 +617,6 @@ private struct DashboardPowerManagementSection: View {
         VStack(spacing: 12) {
             DashboardSectionHeading(title: "Power Management", symbol: "clock") { EmptyView() }
             VStack(spacing: 0) {
-                DashboardRow(title: "Restart after power failure", value: restartDescription)
-                DashboardDivider().padding(.horizontal, 18)
                 DashboardRow(title: scheduleTitle(isOn: true), value: summary(isOn: true))
                 DashboardDivider().padding(.horizontal, 18)
                 DashboardRow(title: scheduleTitle(isOn: false), value: summary(isOn: false))
@@ -634,7 +631,6 @@ private struct DashboardPowerManagementSection: View {
         .padding(.horizontal, 20)
         .padding(.top, 20)
         .padding(.bottom, 17)
-        .frame(minHeight: 223, alignment: .top)
         .dashboardCard()
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: service) }
         .onAppear { service.refresh() }
@@ -657,11 +653,5 @@ private struct DashboardPowerManagementSection: View {
     private func summary(isOn: Bool) -> String {
         guard service.readError == nil else { return "Unavailable" }
         return service.schedules.first(where: { $0.action.isOn == isOn })?.summary ?? "Not scheduled"
-    }
-
-    private var restartDescription: String {
-        let advice = appModel.powerProfileAdvice
-        guard advice.autoRestartSupported == true, let enabled = advice.autoRestartEnabled else { return "Unavailable" }
-        return enabled ? "On" : "Off"
     }
 }
