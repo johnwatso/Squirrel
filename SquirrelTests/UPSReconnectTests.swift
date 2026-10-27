@@ -4,6 +4,22 @@ import SquirrelCore
 @testable import Squirrel
 
 final class UPSReconnectTests: XCTestCase {
+    /// A refused connection used to sit in Network.framework's waiting state,
+    /// so connect() never returned and the setup assistant spun forever.
+    func testConnectingWhereNothingListensFailsPromptly() async throws {
+        let server = try DroppingNUTServer()
+        let port = try await server.start()
+        server.stop()  // The port is now known to be closed.
+        let client = NUTClient(configuration: .init(host: "127.0.0.1", port: port, timeout: 3))
+        let started = Date()
+        do {
+            try await client.connect()
+            XCTFail("Connecting to a closed port must fail")
+        } catch {
+            XCTAssertLessThan(Date().timeIntervalSince(started), 2, "A refusal should fail at once, not wait for the timeout")
+        }
+    }
+
     @MainActor
     func testMonitorOpensFreshSocketAfterServerDropsConnection() async throws {
         let server = try DroppingNUTServer()

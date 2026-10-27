@@ -56,6 +56,7 @@ public actor NUTClient {
         self.connection = connection
 
         do {
+            let timeout = configuration.timeout
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 let resumed = OneShot()
                 connection.stateUpdateHandler = { state in
@@ -64,6 +65,12 @@ public actor NUTClient {
                         resumed.resume { continuation.resume() }
                     case .failed(let error):
                         resumed.resume { continuation.resume(throwing: NUTError.connectionFailed(Self.describe(error))) }
+                    case .waiting(let error):
+                        // Network.framework parks a refused or unreachable
+                        // connection here and retries when the network changes,
+                        // so connect() would never return. Callers want the
+                        // answer now; the monitor does its own retrying.
+                        resumed.resume { continuation.resume(throwing: NUTError.connectionFailed(Self.describe(error))) }
                     case .cancelled:
                         resumed.resume { continuation.resume(throwing: NUTError.notConnected) }
                     default:
@@ -71,6 +78,10 @@ public actor NUTClient {
                     }
                 }
                 connection.start(queue: queue)
+                // A server that never answers at all still gets an answer.
+                queue.asyncAfter(deadline: .now() + timeout) {
+                    resumed.resume { continuation.resume(throwing: NUTError.timedOut) }
+                }
             }
         } catch {
             self.connection = nil
