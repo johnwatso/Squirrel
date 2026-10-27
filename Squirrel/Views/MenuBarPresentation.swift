@@ -177,23 +177,17 @@ enum MenuBarPresentation {
 
     /// The Controls submenu: commands the UPS supports, with a sign-in, that
     /// make sense right now. Turning the beeper off only while it's on, and so
-    /// on. Nothing that cuts power to the load is ever offered, and nothing
-    /// that starts a battery test or calibration, which can drop the power to
-    /// this Mac if the battery fails. Stopping one the UPS began on its own
-    /// schedule is still offered while it runs.
+    /// on. Nothing that cuts power to the load is ever offered, and no battery
+    /// test or calibration commands, which can drop the power to this Mac if
+    /// the battery fails.
     static func offeredCommands(supported: [String], reading: UPSReading?, signedIn: Bool) -> [OfferedCommand] {
         guard signedIn else { return [] }
-        let status = reading?.status ?? []
-        let calibrating = status.contains(.calibrating)
-        let testRunning = reading?.value("ups.test.result")?.lowercased().contains("progress") == true
         let beeper = reading?.value("ups.beeper.status")?.lowercased()
 
         var commands: [OfferedCommand] = []
         func offer(_ command: String, _ title: String, when condition: Bool = true) {
             if condition, supported.contains(command) { commands.append(OfferedCommand(command: command, title: title)) }
         }
-        offer("test.battery.stop", "Stop Self-Test", when: testRunning)
-        offer("calibrate.stop", "Stop Calibration", when: calibrating)
         offer("test.panel.start", "Test Lights and Beeper")
         offer("beeper.disable", "Turn Off Beeper", when: beeper != "disabled")
         offer("beeper.enable", "Turn On Beeper", when: beeper != "enabled")

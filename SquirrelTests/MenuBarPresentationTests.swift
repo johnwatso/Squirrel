@@ -135,23 +135,14 @@ final class MenuBarPresentationTests: XCTestCase {
             reading: reading("OL", ["ups.test.result": "Done and passed", "ups.beeper.status": "enabled"]),
             signedIn: true
         ).map(\.title)
-        XCTAssertEqual(idle, ["Test Lights and Beeper", "Turn Off Beeper"], "Nothing that starts a battery test or calibration is offered")
+        XCTAssertEqual(idle, ["Test Lights and Beeper", "Turn Off Beeper"], "No battery test or calibration command is offered")
 
         let calibrating = MenuBarPresentation.offeredCommands(
             supported: everyCommand,
-            reading: reading("OL CAL", ["ups.beeper.status": "disabled"]),
+            reading: reading("OL CAL", ["ups.beeper.status": "disabled", "ups.test.result": "In progress"]),
             signedIn: true
         ).map(\.title)
-        XCTAssertTrue(calibrating.contains("Stop Calibration"))
-        XCTAssertFalse(calibrating.contains("Stop Self-Test"), "Calibrating isn't a self-test in progress")
-        XCTAssertEqual(calibrating.last, "Turn On Beeper")
-
-        let testing = MenuBarPresentation.offeredCommands(
-            supported: everyCommand,
-            reading: reading("OL", ["ups.test.result": "In progress"]),
-            signedIn: true
-        ).map(\.title)
-        XCTAssertTrue(testing.contains("Stop Self-Test"), "A test the UPS started itself can still be stopped")
+        XCTAssertEqual(calibrating, ["Test Lights and Beeper", "Turn On Beeper"], "Not even the stop commands")
     }
 
     func testPowerStatusColoursFollowTheUPSsOwnSeverity() {
