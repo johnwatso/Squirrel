@@ -153,7 +153,7 @@ struct ConnectionAssistantView: View {
             }
 
             if let error = assistant.validationError {
-                AssistantNoticeBox(kind: .negative, title: error)
+                AssistantNoticeBox(kind: .negative, title: error, detail: assistant.accessHelp)
             }
         }
         .task { discovery.start() }

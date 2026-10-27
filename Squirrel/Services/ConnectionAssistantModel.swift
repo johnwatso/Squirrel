@@ -167,6 +167,12 @@ final class ConnectionAssistantModel: ObservableObject {
 
     var isEditing: Bool { editingDeviceID != nil }
 
+    /// Where the server came from: the network search or a typed address.
+    /// Back and recoverable errors return there, so someone who used the
+    /// search is never dropped onto the manual form unless they must type
+    /// something (a sign-in) to go on.
+    private var serverSource: Step = .find
+
     /// Which of the three dots at the top is lit. The welcome and finished
     /// screens carry no navigation of their own.
     var progressIndex: Int? {
@@ -246,6 +252,7 @@ final class ConnectionAssistantModel: ObservableObject {
     }
 
     func chooseManualEntry() {
+        serverSource = .manual
         step = .manual
         validationError = nil
     }
@@ -260,7 +267,7 @@ final class ConnectionAssistantModel: ObservableObject {
             guard !isEditing else { return }
             step = .find
         case .select:
-            step = .manual
+            step = isEditing ? .manual : serverSource
         default:
             break
         }
@@ -276,6 +283,7 @@ final class ConnectionAssistantModel: ObservableObject {
 
     /// Fills in a server the scan found and goes straight on to enumerate it.
     func use(_ server: DiscoveredNUTServer) async {
+        serverSource = .find
         host = server.host
         port = String(server.port)
         serverHostName = server.hostName
@@ -324,7 +332,7 @@ final class ConnectionAssistantModel: ObservableObject {
             guard !devices.isEmpty else {
                 await client.disconnect()
                 validationError = "That server is running NUT, but it isn't serving any UPS devices."
-                step = .manual
+                step = recoveryStep
                 return
             }
 
@@ -368,11 +376,20 @@ final class ConnectionAssistantModel: ObservableObject {
             // than answering it, which looks exactly like this.
             isRefusedByServer = true
         case let error? where error.isAuthenticationProblem:
+            // A sign-in has to be typed, which only the manual form can take.
             showsAuthentication = true
+            step = .manual
+            return
         default:
             break
         }
-        step = .manual
+        step = recoveryStep
+    }
+
+    /// Where an error that needs no typing sends people: back to the search
+    /// results if that's where the server came from, where the notice shows.
+    private var recoveryStep: Step {
+        isEditing ? .manual : serverSource
     }
 
     /// The configuration the fields currently describe, or nil with the reason
@@ -518,7 +535,7 @@ final class ConnectionAssistantModel: ObservableObject {
     func returnToSelection() {
         outcome = nil
         stages = []
-        step = candidates.isEmpty ? .manual : .select
+        step = candidates.isEmpty ? recoveryStep : .select
     }
 
     // MARK: - Saving
