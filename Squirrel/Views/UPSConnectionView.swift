@@ -131,14 +131,22 @@ struct UPSConnectionView: View {
     private var signInSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             ConnectionSection("Sign-In") {
-                ConnectionRow("Username") {
-                    TextField("Username", text: $editor.username, prompt: Text("Not signed in"))
-                        .connectionField()
+                ConnectionRow("Sign in to the NUT server") {
+                    Toggle("Sign in to the NUT server", isOn: signsIn)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
                 }
-                RowDivider()
-                ConnectionRow("Password") {
-                    SecureField("Password", text: $editor.password, prompt: Text("None"))
-                        .connectionField()
+                if editor.showsAuthentication {
+                    RowDivider()
+                    ConnectionRow("Username") {
+                        TextField("Username", text: $editor.username, prompt: Text("Required"))
+                            .connectionField()
+                    }
+                    RowDivider()
+                    ConnectionRow("Password") {
+                        SecureField("Password", text: $editor.password, prompt: Text("None"))
+                            .connectionField()
+                    }
                 }
             }
             Text(signInFootnote)
@@ -147,6 +155,21 @@ struct UPSConnectionView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 4)
         }
+    }
+
+    /// Turning sign-in off clears the details, so saving removes them rather
+    /// than keeping credentials the switch says aren't used.
+    private var signsIn: Binding<Bool> {
+        Binding(
+            get: { editor.showsAuthentication },
+            set: { isOn in
+                editor.showsAuthentication = isOn
+                if !isOn {
+                    editor.username = ""
+                    editor.password = ""
+                }
+            }
+        )
     }
 
     /// What signing in is for, for this UPS rather than in general. A sign-in
