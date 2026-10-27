@@ -118,75 +118,72 @@ struct UPSDetailView: View {
 
     private var technicalSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DisclosureRow("Technical Information", isExpanded: $settings.preferences.technicalInfoExpanded, labelSpacing: 18) {
-                technicalRows
+            DisclosureRow(
+                "Technical Information",
+                symbol: "info.circle",
+                isExpanded: $settings.preferences.technicalInfoExpanded,
+                labelSpacing: 12
+            ) {
+                technicalGroups
+                    .font(SquirrelFont.body)
             } trailing: {
                 FreshnessLabel(updated: monitor.lastUpdated[device.id], isLive: isLive, maxAge: settings.preferences.readingMaxAge)
             }
+            .font(SquirrelFont.cardHeading)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .dashboardCard()
     }
 
+    /// The same grouped tables as the cards above, one per kind of reading.
     @ViewBuilder
-    private var technicalRows: some View {
+    private var technicalGroups: some View {
         if let reading {
-            group("Battery", UPSTelemetry.batteryFields(for: reading))
-            group("Electrical", UPSTelemetry.electricalFields(for: reading))
-            group("Device", UPSTelemetry.deviceFields(for: reading))
+            TechnicalTable(title: "Battery", fields: UPSTelemetry.batteryFields(for: reading))
+            TechnicalTable(title: "Electrical", fields: UPSTelemetry.electricalFields(for: reading))
+            TechnicalTable(title: "Device", fields: UPSTelemetry.deviceFields(for: reading))
         }
-
-        TechnicalHeading("Connection")
-        LabeledContent("NUT server", value: "\(device.host):\(String(device.port))")
-            .textSelection(.enabled)
-        LabeledContent("UPS identifier", value: device.upsName)
-            .textSelection(.enabled)
-        if let username = device.username, !username.isEmpty {
-            LabeledContent("Username", value: username)
-        }
-        LabeledContent("Status", value: connectionDescription)
-        LabeledContent("Last successful update") {
-            if let updated = monitor.lastUpdated[device.id] {
-                Text(updated.formatted(date: .omitted, time: .standard))
-            } else {
-                Text("Never")
-            }
-        }
-
-        if let observed = monitor.protectionVerifiedAt[device.id] {
-            LabeledContent("Outage observed", value: observed.formatted(date: .abbreviated, time: .shortened))
-        } else if appModel.protects(device) {
-            LabeledContent("Outage observed", value: "Not yet")
-                .help("Recognition by macOS does not mean an outage or shutdown has been tested.")
-        }
+        TechnicalTable(
+            title: "Connection",
+            fields: connectionFields,
+            help: ["observed": "Recognition by macOS does not mean an outage or shutdown has been tested."]
+        )
         if let reading {
-            ForEach(UPSTelemetry.driverFields(for: reading)) { field in
-                LabeledContent(field.label, value: field.value)
-                    .textSelection(.enabled)
-            }
+            TechnicalTable(title: "Driver", fields: UPSTelemetry.driverFields(for: reading))
         } else {
             Text("Squirrel has no reading from this UPS yet, so there is nothing more to show.")
-                .font(.caption)
+                .font(SquirrelFont.caption)
                 .foregroundStyle(DashboardPalette.secondary)
         }
+    }
+
+    private var connectionFields: [UPSTelemetryField] {
+        var fields = [
+            UPSTelemetryField(id: "server", label: "NUT server", value: "\(device.host):\(String(device.port))"),
+            UPSTelemetryField(id: "ups", label: "UPS identifier", value: device.upsName),
+        ]
+        if let username = device.username, !username.isEmpty {
+            fields.append(UPSTelemetryField(id: "username", label: "Username", value: username))
+        }
+        fields.append(UPSTelemetryField(id: "status", label: "Status", value: connectionDescription))
+        fields.append(UPSTelemetryField(
+            id: "updated",
+            label: "Last successful update",
+            value: monitor.lastUpdated[device.id].map { $0.formatted(date: .omitted, time: .standard) } ?? "Never"
+        ))
+        if let observed = monitor.protectionVerifiedAt[device.id] {
+            fields.append(UPSTelemetryField(id: "observed", label: "Outage observed", value: observed.formatted(date: .abbreviated, time: .shortened)))
+        } else if appModel.protects(device) {
+            fields.append(UPSTelemetryField(id: "observed", label: "Outage observed", value: "Not yet"))
+        }
+        return fields
     }
 
     private var connectionDescription: String {
         switch state {
         case .online: return "Connected"
         case .connecting, .failed, .idle: return UPSAppearance.shortStatus(for: state, isPaused: monitor.isPaused)
-        }
-    }
-
-    @ViewBuilder
-    private func group(_ title: String, _ fields: [UPSTelemetryField]) -> some View {
-        if !fields.isEmpty {
-            TechnicalHeading(title)
-            ForEach(fields) { field in
-                LabeledContent(field.label, value: field.value)
-                    .textSelection(.enabled)
-            }
         }
     }
 }
@@ -507,22 +504,43 @@ private struct FreshnessLabel: View {
     }
 }
 
-/// A small heading inside the technical disclosure, so the groups read apart
-/// without nesting another container inside the form.
-private struct TechnicalHeading: View {
+/// One group of technical readings as an inset table, like the rows of the
+/// cards above: labels on the left, values right-aligned and selectable.
+private struct TechnicalTable: View {
     let title: String
-
-    init(_ title: String) {
-        self.title = title
-    }
+    let fields: [UPSTelemetryField]
+    /// Tooltips for rows that need a word of explanation, by field id.
+    var help: [String: String] = [:]
 
     var body: some View {
-        Text(title.uppercased())
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(DashboardPalette.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 6)
-            .accessibilityAddTraits(.isHeader)
+        if !fields.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(SquirrelFont.footnote.weight(.semibold))
+                    .foregroundStyle(DashboardPalette.secondary)
+                    .padding(.leading, 4)
+                    .accessibilityAddTraits(.isHeader)
+                VStack(spacing: 0) {
+                    ForEach(Array(fields.enumerated()), id: \.element.id) { index, field in
+                        if index > 0 { DashboardDivider().padding(.horizontal, 14) }
+                        HStack(alignment: .firstTextBaseline, spacing: 16) {
+                            Text(field.label)
+                            Spacer(minLength: 8)
+                            Text(field.value)
+                                .foregroundStyle(DashboardPalette.secondary)
+                                .monospacedDigit()
+                                .multilineTextAlignment(.trailing)
+                                .textSelection(.enabled)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .help(help[field.id] ?? "")
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .dashboardCard(radius: 10)
+            }
+        }
     }
 }
 

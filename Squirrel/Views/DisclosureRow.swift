@@ -9,6 +9,7 @@ import SwiftUI
 /// method can actuate.
 struct DisclosureRow<Content: View, Trailing: View>: View {
     private let title: String
+    private let symbol: String?
     private let labelSpacing: CGFloat
     @Binding private var isExpanded: Bool
     @ViewBuilder private let content: () -> Content
@@ -17,14 +18,17 @@ struct DisclosureRow<Content: View, Trailing: View>: View {
 
     /// `trailing` sits at the far end of the heading, for a quiet status such
     /// as when the contents were last updated.
+    /// `symbol` sits between the chevron and the title, as on a card heading.
     init(
         _ title: String,
+        symbol: String? = nil,
         isExpanded: Binding<Bool>,
         labelSpacing: CGFloat = 6,
         @ViewBuilder content: @escaping () -> Content,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
+        self.symbol = symbol
         self.labelSpacing = labelSpacing
         self._isExpanded = isExpanded
         self.content = content
@@ -41,6 +45,11 @@ struct DisclosureRow<Content: View, Trailing: View>: View {
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: 10)
+                if let symbol {
+                    Image(systemName: symbol)
+                        .frame(width: 20)
+                        .accessibilityHidden(true)
+                }
                 Text(title)
                 Spacer(minLength: 8)
                 trailing()

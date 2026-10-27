@@ -7,9 +7,7 @@ final class UPSReconnectTests: XCTestCase {
     /// A refused connection used to sit in Network.framework's waiting state,
     /// so connect() never returned and the setup assistant spun forever.
     func testConnectingWhereNothingListensFailsPromptly() async throws {
-        let server = try DroppingNUTServer()
-        let port = try await server.start()
-        server.stop()  // The port is now known to be closed.
+        let port = try XCTUnwrap(Self.closedLoopbackPort())
         let client = NUTClient(configuration: .init(host: "127.0.0.1", port: port, timeout: 3))
         let started = Date()
         do {
@@ -18,6 +16,27 @@ final class UPSReconnectTests: XCTestCase {
         } catch {
             XCTAssertLessThan(Date().timeIntervalSince(started), 2, "A refusal should fail at once, not wait for the timeout")
         }
+    }
+
+    /// A loopback port nothing listens on: bound to find a free number, then
+    /// closed at once. Closing a plain socket is synchronous, unlike stopping
+    /// an NWListener, so nothing can still accept on it.
+    private static func closedLoopbackPort() -> UInt16? {
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        guard socket >= 0 else { return nil }
+        defer { Darwin.close(socket) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        address.sin_port = 0
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafeMutablePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { generic in
+                Darwin.bind(socket, generic, length) == 0 && Darwin.getsockname(socket, generic, &length) == 0
+            }
+        }
+        return bound ? UInt16(bigEndian: address.sin_port) : nil
     }
 
     @MainActor
