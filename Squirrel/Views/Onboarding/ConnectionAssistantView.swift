@@ -139,7 +139,7 @@ struct ConnectionAssistantView: View {
             SquirrelAppIcon()
                 .frame(width: 104, height: 104)
 
-            Text("Connect Your UPS")
+            Text("Set Up Your UPS")
                 .font(SquirrelFont.assistantTitle)
                 .accessibilityAddTraits(.isHeader)
 
@@ -368,7 +368,9 @@ struct ConnectionAssistantView: View {
         let titledByProduct = serverTitle(server) != server.displayName
         // "UniFi UPS" only repeats a title like "UniFi UPS 2U".
         let kindTitle = titledByProduct && kind == .unifi ? nil : kind?.title
-        return [kindTitle, titledByProduct ? server.hostName : nil, server.address]
+        // The port only when it isn't NUT's usual one.
+        let address = server.port == NUTProtocol.defaultPort ? server.host : server.address
+        return [kindTitle, titledByProduct ? server.hostName : nil, address]
             .compactMap { $0 }
             .joined(separator: " · ")
     }

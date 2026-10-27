@@ -210,7 +210,7 @@ private struct ConnectionAssistantWindow: View {
         Group {
             if let assistant = appModel.assistant {
                 ConnectionAssistantView(assistant: assistant, onFinish: finish)
-                    .navigationTitle(assistant.isEditing ? "Change UPS" : "Set Up Your UPS")
+                    .navigationTitle(assistant.windowTitle)
             } else {
                 // Reopened from the Window menu with nothing to configure.
                 Color.clear

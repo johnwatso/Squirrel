@@ -161,11 +161,23 @@ final class ConnectionAssistantModel: ObservableObject {
             _proposedName = Published(initialValue: device.displayName)
             nameEdited = true
         } else {
-            _step = Published(initialValue: .welcome)
+            // The welcome introduces Squirrel, so only a first setup sees it.
+            // Adding another UPS goes straight to finding it.
+            startsAtWelcome = settings.devices.isEmpty
+            _step = Published(initialValue: startsAtWelcome ? .welcome : .find)
         }
     }
 
     var isEditing: Bool { editingDeviceID != nil }
+
+    private var startsAtWelcome = false
+
+    /// The window's title: setting Squirrel up, adding to it, or changing
+    /// a UPS it already has.
+    var windowTitle: String {
+        if isEditing { return "Change UPS" }
+        return startsAtWelcome ? "Set Up Your UPS" : "Add a UPS"
+    }
 
     /// Where the server came from: the network search or a typed address.
     /// Back and recoverable errors return there, so someone who used the
@@ -287,6 +299,7 @@ final class ConnectionAssistantModel: ObservableObject {
         validationError = nil
         switch step {
         case .find:
+            guard startsAtWelcome else { return }
             discovery.stop()
             step = .welcome
         case .manual:
@@ -301,7 +314,8 @@ final class ConnectionAssistantModel: ObservableObject {
 
     var canGoBack: Bool {
         switch step {
-        case .find, .manual: return !isEditing
+        case .find: return startsAtWelcome
+        case .manual: return !isEditing
         case .select: return true
         default: return false
         }
