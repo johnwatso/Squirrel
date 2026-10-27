@@ -176,8 +176,11 @@ struct UPSConnectionView: View {
     /// that unlocks nothing is still needed by servers that guard readings.
     private var signInFootnote: String {
         let unlocks = MenuBarPresentation.signInUnlocks(supported: monitor.commands(for: editor.device))
+        // Nothing to unlock is about this UPS's controls, not about remote
+        // commands in general: most UPSes offer some, such as switching the
+        // power off, which Squirrel deliberately never sends.
         let lead = unlocks.isEmpty
-            ? "This UPS's server doesn't offer any command Squirrel sends, so sign in only if the server needs it to share readings."
+            ? "This UPS has no alarm or beeper controls Squirrel can use, so signing in adds nothing here. Turn it on only if the server needs a sign-in to share readings."
             : "Signing in lets Squirrel send this UPS commands: \(ListFormatter.localizedString(byJoining: unlocks)). Use a NUT user allowed to run them."
         return lead + " Passwords are stored in your login Keychain."
     }
