@@ -57,7 +57,7 @@ A few things to know:
 
 - Squirrel must keep running. Quitting or pausing it removes the UPS from macOS.
 - The IOKit functions it uses ship in macOS but aren't in the public headers. If a future macOS stops accepting them, Squirrel falls back to monitoring and says so.
-- The NUT connection is plain TCP. Use it on a trusted network, or over a VPN.
+- The NUT connection is plain TCP. Use it on a trusted network.
 - macOS recognising the UPS doesn't prove a shutdown works. Test one outage before relying on it.
 
 ## Development
