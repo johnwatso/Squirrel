@@ -67,7 +67,6 @@ struct UPSDetailView: View {
                         UPSMeasurements(reading: reading, isLive: isLive)
                             .padding(12)
                     }
-                    SelfTestRow(device: device, reading: reading)
                     NameSuggestionRow(device: device, reading: reading)
                         .padding(.horizontal, 20)
                     if let trouble = troubleMessage {
@@ -273,46 +272,6 @@ private struct UPSIdentityHeader: View {
         let conditions = UPSStatusPresentation.conditions(for: reading.status)
         return ([UPSStatusPresentation.headline(for: reading.status)] + conditions).joined(separator: " · ")
     }
-}
-
-/// The battery self-test, for a UPS whose server offers one and that has a
-/// saved NUT sign-in: how the last test went and a button to run another,
-/// which always warns first.
-private struct SelfTestRow: View {
-    @EnvironmentObject private var appModel: AppModel
-    @EnvironmentObject private var monitor: UPSMonitor
-
-    let device: UPSDevice
-    let reading: UPSReading?
-
-    var body: some View {
-        if MenuBarPresentation.canRunCommands(on: device),
-           let test = MenuBarPresentation.selfTestCommand(supported: monitor.commands(for: device)) {
-            VStack(spacing: 0) {
-                DashboardDivider()
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Battery self-test")
-                        Text(MenuBarPresentation.selfTestResult(reading).map { "Last result: \($0)" } ?? "No result reported")
-                            .font(SquirrelFont.caption)
-                            .foregroundStyle(DashboardPalette.secondary)
-                    }
-                    Spacer(minLength: 8)
-                    if monitor.isBusy(device) {
-                        ProgressView().controlSize(.small)
-                    }
-                    Button(test.title) { appModel.requestBatteryTest(test, on: device) }
-                        .disabled(monitor.isBusy(device) || state.reading == nil)
-                        .help("Checks the battery by running the UPS on it briefly. You'll be warned first.")
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .accessibilityElement(children: .contain)
-            }
-        }
-    }
-
-    private var state: UPSConnectionState { monitor.state(for: device) }
 }
 
 /// Offers a friendlier name, once, for a UPS still called by its model code
