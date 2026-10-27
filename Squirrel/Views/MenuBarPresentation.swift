@@ -176,47 +176,28 @@ enum MenuBarPresentation {
     }
 
     /// The Controls submenu: commands the UPS supports, with a sign-in, that
-    /// make sense right now. Stopping a test only while one could be running,
-    /// turning the beeper off only while it's on, and so on. Nothing that cuts
-    /// power to the load is ever offered.
+    /// make sense right now. Turning the beeper off only while it's on, and so
+    /// on. Nothing that cuts power to the load is ever offered, and nothing
+    /// that starts a battery test or calibration, which can drop the power to
+    /// this Mac if the battery fails. Stopping one the UPS began on its own
+    /// schedule is still offered while it runs.
     static func offeredCommands(supported: [String], reading: UPSReading?, signedIn: Bool) -> [OfferedCommand] {
         guard signedIn else { return [] }
         let status = reading?.status ?? []
         let calibrating = status.contains(.calibrating)
-        let testResult = reading?.value("ups.test.result")?.lowercased()
-        // Without a reported result a test may be running, so keep the stop.
-        let testMayBeRunning = calibrating || testResult == nil || testResult?.contains("progress") == true
+        let testRunning = reading?.value("ups.test.result")?.lowercased().contains("progress") == true
         let beeper = reading?.value("ups.beeper.status")?.lowercased()
 
         var commands: [OfferedCommand] = []
         func offer(_ command: String, _ title: String, when condition: Bool = true) {
             if condition, supported.contains(command) { commands.append(OfferedCommand(command: command, title: title)) }
         }
-        // The ellipsis: battery tests and calibration ask for confirmation.
-        offer("test.battery.start.quick", "Run Quick Self-Test…")
-        offer("test.battery.start", "Run Self-Test…", when: !supported.contains("test.battery.start.quick"))
-        offer("test.battery.start.deep", "Run Deep Self-Test…")
-        offer("test.battery.stop", "Stop Self-Test", when: testMayBeRunning)
-        offer("calibrate.start", "Calibrate Battery Runtime…", when: !calibrating)
+        offer("test.battery.stop", "Stop Self-Test", when: testRunning)
         offer("calibrate.stop", "Stop Calibration", when: calibrating)
         offer("test.panel.start", "Test Lights and Beeper")
         offer("beeper.disable", "Turn Off Beeper", when: beeper != "disabled")
         offer("beeper.enable", "Turn On Beeper", when: beeper != "enabled")
         return commands
-    }
-
-    /// Commands that put the load on the battery on purpose. A battery that
-    /// fails partway through drops the power to this Mac, so these are only
-    /// ever run after the warning, wherever they are chosen.
-    static func needsBatteryWarning(_ command: String) -> Bool {
-        command.hasPrefix("test.battery.start") || command == "calibrate.start"
-    }
-
-    /// Tests long enough that macOS's own UPS shutdown rules may fire before
-    /// they finish. A quick test is over in seconds; the plain test's length
-    /// is up to the UPS, so it isn't counted here.
-    static func mayOutlastShutdownRules(_ command: String) -> Bool {
-        command == "test.battery.start.deep" || command == "calibrate.start"
     }
 
     /// What to tell the user when the server turns a command down, and whether

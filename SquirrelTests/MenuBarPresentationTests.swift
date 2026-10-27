@@ -135,7 +135,7 @@ final class MenuBarPresentationTests: XCTestCase {
             reading: reading("OL", ["ups.test.result": "Done and passed", "ups.beeper.status": "enabled"]),
             signedIn: true
         ).map(\.title)
-        XCTAssertEqual(idle, ["Run Quick Self-Test…", "Run Deep Self-Test…", "Calibrate Battery Runtime…", "Test Lights and Beeper", "Turn Off Beeper"])
+        XCTAssertEqual(idle, ["Test Lights and Beeper", "Turn Off Beeper"], "Nothing that starts a battery test or calibration is offered")
 
         let calibrating = MenuBarPresentation.offeredCommands(
             supported: everyCommand,
@@ -143,25 +143,15 @@ final class MenuBarPresentationTests: XCTestCase {
             signedIn: true
         ).map(\.title)
         XCTAssertTrue(calibrating.contains("Stop Calibration"))
-        XCTAssertTrue(calibrating.contains("Stop Self-Test"))
-        XCTAssertFalse(calibrating.contains("Calibrate Battery Runtime…"))
+        XCTAssertFalse(calibrating.contains("Stop Self-Test"), "Calibrating isn't a self-test in progress")
         XCTAssertEqual(calibrating.last, "Turn On Beeper")
-    }
 
-    func testAPlainSelfTestStandsInForAQuickOne() {
-        let titles = MenuBarPresentation.offeredCommands(supported: ["test.battery.start"], reading: reading("OL"), signedIn: true).map(\.title)
-        XCTAssertEqual(titles, ["Run Self-Test…"])
-    }
-
-    func testBatteryTestsAlwaysWarnFirst() {
-        for command in ["test.battery.start", "test.battery.start.quick", "test.battery.start.deep", "calibrate.start"] {
-            XCTAssertTrue(MenuBarPresentation.needsBatteryWarning(command), command)
-        }
-        for command in ["test.battery.stop", "calibrate.stop", "beeper.mute", "test.panel.start"] {
-            XCTAssertFalse(MenuBarPresentation.needsBatteryWarning(command), command)
-        }
-        XCTAssertTrue(MenuBarPresentation.mayOutlastShutdownRules("test.battery.start.deep"))
-        XCTAssertFalse(MenuBarPresentation.mayOutlastShutdownRules("test.battery.start.quick"))
+        let testing = MenuBarPresentation.offeredCommands(
+            supported: everyCommand,
+            reading: reading("OL", ["ups.test.result": "In progress"]),
+            signedIn: true
+        ).map(\.title)
+        XCTAssertTrue(testing.contains("Stop Self-Test"), "A test the UPS started itself can still be stopped")
     }
 
     func testPowerStatusColoursFollowTheUPSsOwnSeverity() {

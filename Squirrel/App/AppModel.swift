@@ -46,9 +46,6 @@ final class AppModel: ObservableObject {
     @Published var shouldOpenAssistantWindow = false
     @Published var shouldOpenConnectionWindow = false
     @Published var shouldOpenHistoryWindow = false
-    /// A battery test or calibration waiting for confirmation. Set from the
-    /// menu bar or the window; the main window shows the warning for it.
-    @Published var batteryTestRequest: BatteryTestRequest?
     /// Which UPS the history window shows. Set by whoever opens it, so the
     /// menu bar and the main window each open the history they mean.
     @Published var historyDeviceID: UUID?
@@ -256,13 +253,6 @@ final class AppModel: ObservableObject {
         connectionEditor = nil
     }
 
-    /// Asks before a battery test or calibration, from wherever it was chosen:
-    /// the main window opens and shows the warning.
-    func requestBatteryTest(_ command: MenuBarPresentation.OfferedCommand, on device: UPSDevice) {
-        batteryTestRequest = BatteryTestRequest(deviceID: device.id, command: command)
-        triggerOpenManageWindow()
-    }
-
     /// Credential repairs use the existing-device editor, not onboarding.
     func beginSigningIn(_ device: UPSDevice) {
         editConnection(device)
@@ -362,11 +352,4 @@ final class AppModel: ObservableObject {
     var primaryDevice: UPSDevice? {
         settings.systemDevice ?? settings.devices.first
     }
-}
-
-/// A battery test or calibration the user has chosen but not yet confirmed.
-struct BatteryTestRequest: Identifiable, Equatable {
-    let id = UUID()
-    let deviceID: UUID
-    let command: MenuBarPresentation.OfferedCommand
 }
