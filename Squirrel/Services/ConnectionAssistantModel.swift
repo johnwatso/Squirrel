@@ -217,10 +217,36 @@ final class ConnectionAssistantModel: ObservableObject {
     /// such as "UPS on DiskStation".
     func suggestedName(for candidate: UPSCandidate?) -> String {
         guard let candidate else { return "" }
+        // A UPS Squirrel already has keeps the name it was given.
+        if let existing = existingDevice(for: candidate) { return existing.displayName }
         if let name = UPSNaming.suggestedName(for: candidate.reading) { return name }
         if let description = candidate.serverDescription, !description.isEmpty { return description }
         if let kind = serverKind, kind != .unifi { return "UPS on \(serverHostName ?? kind.title)" }
         return candidate.name
+    }
+
+    // MARK: - Already added
+
+    /// The configured UPS this candidate already is, when connecting would
+    /// update it rather than add a second one. Never the UPS being edited:
+    /// reconnecting that one is the point.
+    func existingDevice(for candidate: UPSCandidate) -> UPSDevice? {
+        guard let port = UInt16(port.trimmingCharacters(in: .whitespaces)) else { return nil }
+        return existingDevice(host: host.trimmingCharacters(in: .whitespaces), port: port, upsName: candidate.name)
+    }
+
+    /// Whether every UPS a found server offers is one Squirrel already has.
+    func isAlreadyAdded(_ server: DiscoveredNUTServer) -> Bool {
+        !server.upsNames.isEmpty && server.upsNames.allSatisfy {
+            existingDevice(host: server.host, port: server.port, upsName: $0) != nil
+        }
+    }
+
+    private func existingDevice(host: String, port: UInt16, upsName: String) -> UPSDevice? {
+        settings.devices.first {
+            $0.id != editingDeviceID && $0.host.caseInsensitiveCompare(host) == .orderedSame
+                && $0.port == port && $0.upsName == upsName
+        }
     }
 
     // MARK: - Server help

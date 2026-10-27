@@ -227,7 +227,9 @@ struct ConnectionAssistantView: View {
                     Text(serverDetail(server)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                if server.deniedAccess {
+                if assistant.isAlreadyAdded(server) {
+                    AssistantStatusBadge(text: "Already added", tint: .secondary)
+                } else if server.deniedAccess {
                     AssistantStatusBadge(text: "Not permitted", tint: .orange)
                 } else if server.requiresAuthentication {
                     AssistantStatusBadge(text: "Sign-in needed", tint: .orange)
@@ -396,7 +398,9 @@ struct ConnectionAssistantView: View {
                         isSelected: assistant.selectedUPSName == candidate.name,
                         action: { assistant.selectedUPSName = candidate.name },
                         accessory: {
-                            if let phrase = candidate.statusPhrase {
+                            if assistant.existingDevice(for: candidate) != nil {
+                                AssistantStatusBadge(text: "Already added", tint: .secondary)
+                            } else if let phrase = candidate.statusPhrase {
                                 AssistantStatusBadge(text: phrase, tint: tint(for: candidate.reading))
                             }
                         }
@@ -406,10 +410,12 @@ struct ConnectionAssistantView: View {
             }
             .assistantGroup()
 
-            if assistant.candidates.count == 1 {
-                Text("This is the only UPS this server is serving.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let existing = assistant.selectedCandidate.flatMap(assistant.existingDevice(for:)) {
+                AssistantNoticeBox(
+                    kind: .warning,
+                    title: "“\(existing.displayName)” is already in Squirrel",
+                    detail: "Connecting updates it with these settings rather than adding it a second time."
+                )
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -700,19 +706,24 @@ struct ConnectionAssistantView: View {
     @ViewBuilder
     private var footer: some View {
         HStack(spacing: 10) {
-            if assistant.canGoBack {
-                Button("Back") { assistant.back() }
-                    .assistantSecondaryButton()
-                    .disabled(assistant.isValidating)
-            } else if assistant.isEditing, assistant.step != .finished {
+            // Leaving is always possible before the result: Cancel at the
+            // leading edge, with Escape, and Back beside the way forward.
+            if assistant.step != .finished {
                 Button("Cancel") { onFinish(nil) }
                     .assistantSecondaryButton()
+                    .keyboardShortcut(.cancelAction)
             }
 
             Spacer(minLength: 0)
 
             if assistant.isValidating {
                 ProgressView().controlSize(.small)
+            }
+
+            if assistant.canGoBack {
+                Button("Back") { assistant.back() }
+                    .assistantSecondaryButton()
+                    .disabled(assistant.isValidating)
             }
 
             switch assistant.step {

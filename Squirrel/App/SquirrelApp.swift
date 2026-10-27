@@ -29,7 +29,12 @@ struct SquirrelApp: App {
                 .environmentObject(appModel.settings)
                 .environmentObject(appModel.monitor)
                 .onAppear { appModel.setWindow(.assistant, visible: true) }
-                .onDisappear { appModel.setWindow(.assistant, visible: false) }
+                .onDisappear {
+                    // Closing the window is cancelling: stop the network scan
+                    // and drop the half-finished setup.
+                    if appModel.assistant != nil { appModel.endConnectionAssistant() }
+                    appModel.setWindow(.assistant, visible: false)
+                }
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
