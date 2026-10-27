@@ -274,7 +274,7 @@ final class ConnectionAssistantModel: ObservableObject {
     func beginFinding() {
         step = .find
         validationError = nil
-        discovery.start()
+        discovery.startIfNeeded()
     }
 
     func chooseManualEntry() {

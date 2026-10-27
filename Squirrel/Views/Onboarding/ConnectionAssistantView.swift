@@ -17,6 +17,12 @@ struct ConnectionAssistantView: View {
     @State private var findMode: FindMode = .automatic
     @State private var selectedServerID: String?
     @FocusState private var focusedField: Field?
+    /// The step on screen, which follows the model's a moment later so the
+    /// outgoing step is redrawn with the right direction before it leaves.
+    @State private var shownStep: ConnectionAssistantModel.Step?
+    @State private var movingBack = false
+    @State private var contentHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var discovery: NUTDiscoveryService { assistant.discovery }
 
@@ -26,19 +32,36 @@ struct ConnectionAssistantView: View {
                 AssistantStepIndicator(titles: ["Find UPS", "Select", "Finish"], current: index)
                     .padding(.top, 18)
                     .padding(.bottom, 20)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: index)
             }
 
+            // The window grows to fit each step, and only scrolls once a step
+            // would be taller than the screen allows.
             ScrollView {
-                content
-                    .padding(.horizontal, 28)
-                    .padding(.top, assistant.progressIndex == nil ? 30 : 0)
-                    .padding(.bottom, 24)
-                    // The screens without a step indicator are a single
-                    // statement, so they sit in the middle of the window
-                    // rather than hugging the top of it.
-                    .frame(maxWidth: .infinity, minHeight: centersContent ? 368 : 0)
+                ZStack {
+                    content(for: step)
+                        .id(step)
+                        .transition(stepTransition)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, assistant.progressIndex == nil ? 30 : 0)
+                .padding(.bottom, 24)
+                // The screens without a step indicator are a single
+                // statement, so they sit in the middle of the window
+                // rather than hugging the top of it.
+                .frame(maxWidth: .infinity, minHeight: centersContent ? 368 : 0)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: AssistantContentHeight.self, value: geometry.size.height)
+                    }
+                }
             }
-                .frame(maxHeight: .infinity)
+            .frame(height: min(contentHeight, maxContentHeight))
+            .clipped()
+            .onPreferenceChange(AssistantContentHeight.self) { contentHeight = $0 }
+
+            // A short step leaves the footer at the foot of the window.
+            Spacer(minLength: 0)
 
             if hasFooter {
                 Divider()
@@ -49,20 +72,57 @@ struct ConnectionAssistantView: View {
         }
         .frame(width: 560)
         .frame(minHeight: 468)
+        // Fixed to its content, so the window resizes with each step.
+        .fixedSize(horizontal: false, vertical: true)
         .background(Color(nsColor: .windowBackgroundColor))
-        .animation(.easeInOut(duration: 0.18), value: assistant.step)
+        .onChange(of: assistant.step) { newStep in
+            movingBack = Self.order(of: newStep) < Self.order(of: step)
+            // Next turn, so the leaving step picks up the new direction first.
+            DispatchQueue.main.async {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { shownStep = newStep }
+            }
+        }
+    }
+
+    private var step: ConnectionAssistantModel.Step { shownStep ?? assistant.step }
+
+    /// Steps slide in the direction of travel, and Back slides the other way.
+    /// With Reduce Motion there is no animation, so they simply swap.
+    private var stepTransition: AnyTransition {
+        let leading = AnyTransition.move(edge: .leading).combined(with: .opacity)
+        let trailing = AnyTransition.move(edge: .trailing).combined(with: .opacity)
+        return movingBack
+            ? .asymmetric(insertion: leading, removal: trailing)
+            : .asymmetric(insertion: trailing, removal: leading)
+    }
+
+    private static func order(of step: ConnectionAssistantModel.Step) -> Int {
+        switch step {
+        case .welcome: return 0
+        case .find: return 1
+        case .manual: return 2
+        case .select: return 3
+        case .connecting: return 4
+        case .finished: return 5
+        }
+    }
+
+    /// Room for the step indicator, footer and window chrome, so a tall step
+    /// scrolls instead of running off a small screen.
+    private var maxContentHeight: CGFloat {
+        max(368, (NSScreen.main?.visibleFrame.height ?? 900) - 220)
     }
 
     private var centersContent: Bool {
-        switch assistant.step {
+        switch step {
         case .welcome, .connecting, .finished: return true
         default: return false
         }
     }
 
     @ViewBuilder
-    private var content: some View {
-        switch assistant.step {
+    private func content(for step: ConnectionAssistantModel.Step) -> some View {
+        switch step {
         case .welcome: welcomeStep
         case .find: findStep
         case .manual: manualStep
@@ -156,7 +216,18 @@ struct ConnectionAssistantView: View {
                 AssistantNoticeBox(kind: .negative, title: error, detail: assistant.accessHelp)
             }
         }
-        .task { discovery.start() }
+        .task { discovery.startIfNeeded() }
+        .onAppear(perform: preselectOnlyServer)
+        .onChange(of: discovery.servers.count) { _ in preselectOnlyServer() }
+    }
+
+    /// One server found, and not one Squirrel already has: choose it, so
+    /// Continue works straight away.
+    private func preselectOnlyServer() {
+        guard findMode == .automatic, selectedServerID == nil, discovery.servers.count == 1,
+              let server = discovery.servers.first, !server.deniedAccess, !assistant.isAlreadyAdded(server)
+        else { return }
+        selectedServerID = server.id
     }
 
     private var discoveryDetail: String? {
@@ -243,9 +314,12 @@ struct ConnectionAssistantView: View {
                 } else if !server.upsNames.isEmpty {
                     AssistantStatusBadge(text: "Available", tint: .green)
                 }
-                Image(systemName: selectedServerID == server.id ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                // A selection mark, not a chevron: choosing a row selects it,
+                // it doesn't open anything.
+                Image(systemName: selectedServerID == server.id ? "checkmark.circle.fill" : "circle")
+                    .font(.body)
                     .foregroundStyle(selectedServerID == server.id ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -419,11 +493,15 @@ struct ConnectionAssistantView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
+                Text("Name")
+                    .font(.callout.weight(.medium))
                 TextField(
                     "Name",
                     text: Binding(get: { assistant.proposedName }, set: { assistant.editName($0) }),
                     prompt: Text("Network Rack UPS")
                 )
+                .labelsHidden()
+                .accessibilityLabel("Name")
                 .textFieldStyle(.roundedBorder)
                 Text("How the UPS appears in Squirrel and in System Settings. You can change it later.")
                     .font(.caption)
@@ -808,4 +886,9 @@ struct ConnectionAssistantView: View {
         guard !assistant.isValidating else { return }
         Task { await assistant.enumerateServer() }
     }
+}
+
+private struct AssistantContentHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

@@ -65,6 +65,13 @@ final class NUTDiscoveryService: ObservableObject {
         }
     }
 
+    /// Starts a scan unless one already finished, so stepping back and forth
+    /// through the assistant keeps its results. Scan Again still rescans.
+    func startIfNeeded(port: UInt16 = NUTProtocol.defaultPort) {
+        if case .finished = state, scanTask == nil { return }
+        start(port: port)
+    }
+
     func restart(port: UInt16 = NUTProtocol.defaultPort) {
         stop()
         start(port: port)
