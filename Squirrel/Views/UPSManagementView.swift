@@ -223,7 +223,7 @@ struct UPSManagementView: View {
                 .foregroundStyle(.secondary)
             Text("No UPS Connected")
                 .font(.title3.weight(.semibold))
-            Text("Squirrel makes a network UPS available to macOS, just like a USB-connected one.")
+            Text("Squirrel lets your Mac see a UPS on your network, so macOS can shut it down safely when the power fails.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

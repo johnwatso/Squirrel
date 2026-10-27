@@ -135,28 +135,51 @@ struct ConnectionAssistantView: View {
     // MARK: - 1. Welcome
 
     private var welcomeStep: some View {
-        VStack(spacing: 14) {
-            SquirrelAppIcon()
-                .frame(width: 104, height: 104)
+        VStack(spacing: 0) {
+            SquirrelMascot()
+                .frame(width: 100, height: 100)
+                .padding(.bottom, 16)
 
-            Text("Set Up Your UPS")
+            Text("Connect Your UPS")
                 .font(SquirrelFont.assistantTitle)
                 .accessibilityAddTraits(.isHeader)
+                .padding(.bottom, 8)
 
-            Text("Squirrel connects to your network UPS and makes it available to macOS, just like a USB-connected UPS.")
-                .font(.callout)
+            Text("Monitor your UPS, track power usage and help your Mac shut down safely during a power outage.")
+                .font(SquirrelFont.intro)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 400)
+                .frame(maxWidth: 440)
+                .padding(.bottom, 24)
 
-            AssistantNoticeBox(
-                kind: .positive,
-                title: "Native macOS integration",
-                detail: "Battery status and shutdown settings appear directly in System Settings."
+            VStack(alignment: .leading, spacing: 20) {
+                AssistantFeatureRow(
+                    symbol: "battery.100percent",
+                    tint: .green,
+                    title: "Battery & Runtime",
+                    detail: "Monitor battery levels and estimated runtime at a glance."
+                )
+                AssistantFeatureRow(
+                    symbol: "shield.lefthalf.filled",
+                    tint: .indigo,
+                    title: "Power Protection",
+                    detail: "Help your Mac shut down safely during power outages."
+                )
+                AssistantFeatureRow(
+                    symbol: "clock.arrow.circlepath",
+                    tint: .orange,
+                    title: "Power History",
+                    detail: "Track power events and review past activity."
+                )
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06))
             )
-            .frame(maxWidth: 400)
-            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
     }
@@ -794,8 +817,10 @@ struct ConnectionAssistantView: View {
         HStack(spacing: 10) {
             // Leaving is always possible before the result: Cancel at the
             // leading edge, with Escape, and Back beside the way forward.
+            // On the welcome screen this is Not Now: nothing is set up yet,
+            // so leaving there is putting setup off rather than abandoning it.
             if assistant.step != .finished {
-                Button("Cancel") { onFinish(nil) }
+                Button(assistant.step == .welcome ? "Not Now" : "Cancel") { onFinish(nil) }
                     .assistantSecondaryButton()
                     .keyboardShortcut(.cancelAction)
             }
@@ -814,7 +839,7 @@ struct ConnectionAssistantView: View {
 
             switch assistant.step {
             case .welcome:
-                Button("Get Started") { assistant.beginFinding() }
+                Button("Continue") { assistant.beginFinding() }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
 

@@ -4,7 +4,7 @@
 
 <h1 align="center">Squirrel</h1>
 
-<p align="center"><strong>A network UPS that macOS treats like a USB one.</strong></p>
+<p align="center"><strong>Lets your Mac see the UPS on your network.</strong></p>
 
 <p align="center">
   Squirrel reads your UPS from a Network UPS Tools (NUT) server and hands it to macOS as a real power source, so the Mac's own UPS shutdown settings work.
@@ -51,7 +51,7 @@ You'll need macOS 13 or later, and a NUT server for your UPS that this Mac is al
 
 ## How it works
 
-Squirrel polls the NUT server and publishes the selected UPS through IOKit, the same way macOS's own USB UPS support does. macOS owns the shutdown policy; set your thresholds under **System Settings → Energy → UPS Options**. Squirrel's **Outage Protection** card shows whether macOS sees the UPS, which rules are set, and whether the Mac restarts when power returns.
+Squirrel polls the NUT server and publishes the selected UPS to macOS as a power source through IOKit, so the Mac sees it as its own UPS. macOS owns the shutdown policy; set your thresholds under **System Settings → Energy → UPS Options**. Squirrel's **Power Protection** card shows whether macOS sees the UPS, which rules are set, and whether the Mac restarts when power returns.
 
 A few things to know:
 

@@ -41,6 +41,7 @@
 		7F751089BE6C96B3308BA964 /* PowerSourcePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024ECFA1E1C6A97C7F46D506 /* PowerSourcePublisher.swift */; };
 		8703C651F842BD44F2DB041B /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC717102E1BB4F4C4337273 /* AppPreferences.swift */; };
 		889AFA7084204D4499D40251 /* UPSNamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D0465DBF9E7DCC00B4668D /* UPSNamingTests.swift */; };
+		8E5A082DCFAF514B6DE3945C /* SquirrelMascot.png in Resources */ = {isa = PBXBuildFile; fileRef = 2A336D4F7E964563BD5A00C6 /* SquirrelMascot.png */; };
 		984071A343CDCB8344A1BFC5 /* ConnectionEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA9803A3FD1ECBA176B4B2B /* ConnectionEditorTests.swift */; };
 		9CF39577A2E95F95735D4B54 /* NUTProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615986FF006E2E644F42F535 /* NUTProtocolTests.swift */; };
 		9DFEAF81B2671084BFCB5D11 /* CommandService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9010AF914984658AC6DBF9AF /* CommandService.swift */; };
@@ -139,6 +140,7 @@
 		22D0465DBF9E7DCC00B4668D /* UPSNamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSNamingTests.swift; sourceTree = "<group>"; };
 		2453BBBD9F46A49D25516CCE /* PowerScheduleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerScheduleTests.swift; sourceTree = "<group>"; };
 		2649476C9A5CDF29BB562BEC /* MenuBarPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPresentation.swift; sourceTree = "<group>"; };
+		2A336D4F7E964563BD5A00C6 /* SquirrelMascot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = SquirrelMascot.png; sourceTree = "<group>"; };
 		3337E9B2B174DBAD38F65329 /* UPSStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSStatus.swift; sourceTree = "<group>"; };
 		35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSDetailView.swift; sourceTree = "<group>"; };
 		3850DF68D4553DE34405811B /* UPSStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPSStatusTests.swift; sourceTree = "<group>"; };
@@ -340,10 +342,19 @@
 				FED01161C2B48377028C359C /* Squirrel.entitlements */,
 				D5BB7672A872781ADAD70041 /* App */,
 				594204E01BBF6419FF76101F /* Models */,
+				B104F15B3DB32BA2A6BE245B /* Resources */,
 				9B74FAF57509A51CBB4D0E17 /* Services */,
 				18B1663D5679572D48DB08BF /* Views */,
 			);
 			path = Squirrel;
+			sourceTree = "<group>";
+		};
+		B104F15B3DB32BA2A6BE245B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2A336D4F7E964563BD5A00C6 /* SquirrelMascot.png */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		B303A4B9A592516F3FF129AF /* SquirrelCore */ = {
@@ -527,6 +538,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5246340DAE02F2F9FD79CCFC /* Squirrel.icon in Resources */,
+				8E5A082DCFAF514B6DE3945C /* SquirrelMascot.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

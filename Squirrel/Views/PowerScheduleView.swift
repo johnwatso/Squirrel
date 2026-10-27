@@ -90,7 +90,8 @@ struct PowerScheduleView: View {
         .padding(30)
         .frame(width: 650)
         .interactiveDismissDisabled(service.isApplying)
-        .onAppear { service.clearError(); service.refresh() }
+        // After the sheet is on screen, not during its first layout.
+        .task { service.clearError(); service.refresh() }
         // Deleting changes the Mac's own power schedule, so it is confirmed.
         .confirmationDialog(
             "Delete the \(ruleToDelete?.action.cardTitle ?? "") schedule?",

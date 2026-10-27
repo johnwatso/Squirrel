@@ -23,7 +23,7 @@ struct SquirrelApp: App {
             EmptyView()
         }
 
-        Window("Set Up Your UPS", id: AppModel.assistantWindowID) {
+        Window("Set Up Squirrel", id: AppModel.assistantWindowID) {
             ConnectionAssistantWindow()
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)

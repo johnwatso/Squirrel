@@ -62,6 +62,22 @@ final class ConnectionEditorTests: XCTestCase {
     }
 
     @MainActor
+    func testRewritingAnUnchangedFieldDuringATestKeepsItsResult() async throws {
+        let fixture = try EditorFixture()
+        defer { fixture.cleanUp() }
+        var editor: ConnectionEditorModel!
+        editor = ConnectionEditorModel(device: fixture.device, settings: fixture.settings, probe: { _ in
+            // What a focused text field does when the test disables it.
+            editor.host = editor.host
+            return [fixture.candidate]
+        })
+        editor.host = "new.local"
+        await editor.testConnection()
+        XCTAssertTrue(editor.hasTested)
+        XCTAssertTrue(editor.canSave)
+    }
+
+    @MainActor
     func testMissingConfiguredUPSRequiresExplicitSelectionAndAReading() async throws {
         let fixture = try EditorFixture()
         defer { fixture.cleanUp() }

@@ -176,7 +176,7 @@ final class ConnectionAssistantModel: ObservableObject {
     /// a UPS it already has.
     var windowTitle: String {
         if isEditing { return "Change UPS" }
-        return startsAtWelcome ? "Set Up Your UPS" : "Add a UPS"
+        return startsAtWelcome ? "Set Up Squirrel" : "Add a UPS"
     }
 
     /// Where the server came from: the network search or a typed address.

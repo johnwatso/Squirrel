@@ -594,11 +594,9 @@ struct DashboardRow: View {
 
 struct DashboardSectionHeading<Trailing: View>: View {
     let title: String
-    let symbol: String
     @ViewBuilder var trailing: Trailing
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 18)).frame(width: 20)
             Text(title).font(SquirrelFont.cardHeading).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             trailing
@@ -615,11 +613,20 @@ private struct DashboardPowerManagementSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            DashboardSectionHeading(title: "Power Management", symbol: "clock") { EmptyView() }
+            DashboardSectionHeading(title: "Power Management") { EmptyView() }
+            // Only schedules that are set get a row; with none, one row says so
+            // rather than listing each kind as "Not scheduled".
             VStack(spacing: 0) {
-                DashboardRow(title: scheduleTitle(isOn: true), value: summary(isOn: true))
-                DashboardDivider().padding(.horizontal, 18)
-                DashboardRow(title: scheduleTitle(isOn: false), value: summary(isOn: false))
+                if service.readError != nil {
+                    DashboardRow(title: "Schedule", value: "Unavailable")
+                } else if activeRules.isEmpty {
+                    DashboardRow(title: "Schedule", value: "Not scheduled")
+                } else {
+                    ForEach(Array(activeRules.enumerated()), id: \.offset) { index, rule in
+                        if index > 0 { DashboardDivider().padding(.horizontal, 18) }
+                        DashboardRow(title: title(for: rule), value: rule.summary)
+                    }
+                }
             }
             .dashboardCard(radius: 10)
             HStack {
@@ -633,13 +640,15 @@ private struct DashboardPowerManagementSection: View {
         .padding(.bottom, 17)
         .dashboardCard()
         .sheet(isPresented: $showingSchedule) { PowerScheduleView(service: service) }
-        .onAppear { service.refresh() }
+        .task { service.refresh() }
     }
 
-    private func scheduleTitle(isOn: Bool) -> String {
-        guard let rule = service.schedules.first(where: { $0.action.isOn == isOn }) else {
-            return isOn ? "Scheduled startup" : "Scheduled shutdown"
-        }
+    /// The startup or wake rule first, then the sleep, restart or shutdown rule.
+    private var activeRules: [RepeatingPowerSchedule] {
+        [true, false].compactMap { isOn in service.schedules.first { $0.action.isOn == isOn } }
+    }
+
+    private func title(for rule: RepeatingPowerSchedule) -> String {
         switch rule.action {
         case .wake: return "Scheduled wake"
         case .wakeorpoweron: return "Scheduled startup/wake"
@@ -648,10 +657,5 @@ private struct DashboardPowerManagementSection: View {
         case .restart: return "Scheduled restart"
         case .shutdown: return "Scheduled shutdown"
         }
-    }
-
-    private func summary(isOn: Bool) -> String {
-        guard service.readError == nil else { return "Unavailable" }
-        return service.schedules.first(where: { $0.action.isOn == isOn })?.summary ?? "Not scheduled"
     }
 }

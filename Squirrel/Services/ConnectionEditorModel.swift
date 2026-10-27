@@ -9,10 +9,13 @@ final class ConnectionEditorModel: ObservableObject, Identifiable {
 
     let id = UUID()
     let device: UPSDevice
-    @Published var host: String { didSet { invalidateTest() } }
-    @Published var port: String { didSet { invalidateTest() } }
-    @Published var username: String { didSet { invalidateTest() } }
-    @Published var password: String { didSet { invalidateTest() } }
+    // Only a real change invalidates a test. Disabling a focused text field
+    // writes its unchanged value back, which would otherwise discard the
+    // result of the test that disabled it.
+    @Published var host: String { didSet { if host != oldValue { invalidateTest() } } }
+    @Published var port: String { didSet { if port != oldValue { invalidateTest() } } }
+    @Published var username: String { didSet { if username != oldValue { invalidateTest() } } }
+    @Published var password: String { didSet { if password != oldValue { invalidateTest() } } }
     @Published var showsAuthentication: Bool
     @Published var selectedUPSName: String?
     @Published private(set) var candidates: [UPSCandidate] = []

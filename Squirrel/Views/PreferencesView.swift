@@ -162,7 +162,7 @@ private struct PowerSettingsView: View {
                     )
                 }
             } header: {
-                Text("Outage Protection")
+                Text("Power Protection")
             } footer: {
                 SettingsFootnote("Your UPS appears in System Settings → Energy, where macOS performs the shutdown itself. Turning this off leaves Squirrel as a monitor only.")
             }

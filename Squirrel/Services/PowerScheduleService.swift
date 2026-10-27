@@ -63,7 +63,7 @@ enum ScheduleError: LocalizedError {
     }
 }
 
-struct ScheduledSystemEvent: Identifiable, Sendable {
+struct ScheduledSystemEvent: Identifiable, Equatable, Sendable {
     let date: Date
     let type: String
     let owner: String
@@ -92,22 +92,30 @@ final class PowerScheduleService: ObservableObject {
         self.writer = writer ?? { try await Self.authorizePMSet($0, expectedSchedule: $1) }
     }
 
+    /// Publishes only what changed. Opening Edit Schedule refreshes while the
+    /// sheet and the dashboard behind it are both laid out, and republishing
+    /// identical values re-laid out both mid-pass (SwiftUI attribute cycles,
+    /// AppKit layout recursion).
     func refresh() {
         do {
             let output = try reader(["-g", "sched"])
             let active = try Self.parse(output)
             let disabled = defaults.data(forKey: Self.draftKey).flatMap { try? JSONDecoder().decode([RepeatingPowerSchedule].self, from: $0) } ?? []
-            schedules = active + disabled.filter { !$0.enabled && !active.map(\.id).contains($0.id) }
+            setIfChanged(\.schedules, active + disabled.filter { !$0.enabled && !active.map(\.id).contains($0.id) })
             baseline = output
-            readError = nil
+            setIfChanged(\.readError, nil)
         } catch {
-            readError = error.localizedDescription
+            setIfChanged(\.readError, error.localizedDescription)
         }
         let events = IOPMCopyScheduledPowerEvents()?.takeRetainedValue() as? [[String: Any]] ?? []
-        scheduledEvents = events.compactMap { entry in
+        setIfChanged(\.scheduledEvents, events.compactMap { entry in
             guard let date = entry["time"] as? Date, let type = entry["eventtype"] as? String else { return nil }
             return ScheduledSystemEvent(date: date, type: type, owner: entry["scheduledby"] as? String ?? "macOS")
-        }.sorted { $0.date < $1.date }
+        }.sorted { $0.date < $1.date })
+    }
+
+    private func setIfChanged<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<PowerScheduleService, Value>, _ value: Value) {
+        if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
 
     /// pmset's arbitrary weekday masks print as “Some days”. In that case a
@@ -160,7 +168,7 @@ final class PowerScheduleService: ObservableObject {
         return result
     }
 
-    func clearError() { lastError = nil }
+    func clearError() { setIfChanged(\.lastError, nil) }
 
     func apply(_ draft: [RepeatingPowerSchedule], expectedBaseline: String) async -> Bool {
         guard !isApplying, readError == nil else { return false }

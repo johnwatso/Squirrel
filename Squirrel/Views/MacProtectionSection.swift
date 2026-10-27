@@ -19,7 +19,7 @@ struct MacProtectionStatus: Equatable {
     }
 
     var level: Level
-    /// The card's status word: "Connected", "No Shutdown Rule".
+    /// The card's status word: "Active", "No Shutdown Rule".
     var title: String
     /// The same state as one line for the menu: "Connected to macOS".
     var summary: String
@@ -71,8 +71,9 @@ struct MacProtectionStatus: Equatable {
             if advice.needsAttention(whenKeepingAwake: preferences.preventSleepDuringOutage) {
                 return .init(level: .attention, title: "Needs Attention", summary: "Connected · Mac may sleep first", explanation: "Your Mac sleeps \(advice.sleepMinutes ?? 0) min into an outage, so it may never reach its shutdown rule. Turn on “Keep the Mac awake” in Squirrel's settings, or lengthen the UPS sleep timer.", isConnected: true)
             }
-            // Green only once macOS sees the UPS and has a rule to act on.
-            return .init(level: .active, title: "Connected", summary: "Connected to macOS", explanation: nil, isConnected: true)
+            // Green, and "Active", only once macOS sees the UPS and has a rule
+            // it will reach. Anything short of that keeps its own wording.
+            return .init(level: .active, title: "Active", summary: "Connected to macOS", explanation: nil, isConnected: true)
         }
     }
 }
@@ -99,10 +100,10 @@ struct MacProtectionSection: View {
     }
 
     var body: some View {
-        VStack(spacing: 13) {
+        VStack(spacing: 12) {
             // A status, not a control: the action it used to hide is the
             // Open Energy Settings button at the foot of the card.
-            DashboardSectionHeading(title: "Outage Protection", symbol: "power.circle") {
+            DashboardSectionHeading(title: "Power Protection") {
                 HStack(spacing: 10) {
                     Circle().fill(status.tint).frame(width: 9, height: 9)
                         .accessibilityHidden(true)
@@ -110,7 +111,7 @@ struct MacProtectionSection: View {
                 }
                 .help(status.summary)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Outage Protection: \(status.title)")
+                .accessibilityLabel("Power Protection: \(status.title)")
             }
             // What happens through an outage, in order: sleep, shutdown, then
             // starting up again. Restarting is the Mac's own setting, so it

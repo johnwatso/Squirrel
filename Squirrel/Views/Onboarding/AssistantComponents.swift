@@ -242,10 +242,42 @@ struct AssistantNoticeBox: View {
     }
 }
 
-/// The app icon, at whatever size it is given.
-struct SquirrelAppIcon: View {
+/// One of the welcome screen's feature rows: a softly tinted tile, a title
+/// and a line of detail. Informational only, so VoiceOver reads it as text.
+struct AssistantFeatureRow: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let detail: String
+
     var body: some View {
-        Image(nsImage: NSApplication.shared.applicationIconImage)
+        HStack(alignment: .center, spacing: 16) {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 48, height: 48)
+                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(SquirrelFont.cardHeading)
+                Text(detail)
+                    .font(SquirrelFont.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The squirrel from the app icon, without the icon's tile behind it. The
+/// image is the icon's colour layer, cropped to its edges.
+struct SquirrelMascot: View {
+    var body: some View {
+        Image(nsImage: NSImage(named: "SquirrelMascot") ?? NSApplication.shared.applicationIconImage)
             .resizable()
             .interpolation(.high)
             .scaledToFit()

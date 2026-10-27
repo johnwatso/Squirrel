@@ -163,7 +163,7 @@ final class MenuBarPresentationTests: XCTestCase {
     /// Only an active status may be green; anything else is amber or grey.
     /// The hotspot is slashed whenever macOS doesn't have the UPS.
     func testConnectionLineIsGreenOnlyWhenActive() {
-        let active = MacProtectionStatus(level: .active, title: "Connected", summary: "Connected to macOS", isConnected: true)
+        let active = MacProtectionStatus(level: .active, title: "Active", summary: "Connected to macOS", isConnected: true)
         XCTAssertEqual(MenuBarPresentation.protectionLine(for: active), .init(title: "Connected to macOS", symbol: "personalhotspot", tone: .positive))
         let noRule = MacProtectionStatus(level: .attention, title: "No Shutdown Rule", summary: "Connected · no shutdown rule", isConnected: true)
         XCTAssertEqual(MenuBarPresentation.protectionLine(for: noRule), .init(title: "Connected · no shutdown rule", symbol: "personalhotspot", tone: .caution))

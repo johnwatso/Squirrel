@@ -14,7 +14,7 @@ enum SquirrelFont {
     static let footnote = Font.subheadline
     /// A sheet's one-line introduction under its title.
     static let intro = Font.title3
-    /// Dashboard card headings: Outage Protection, Power Management.
+    /// Dashboard card headings: Power Protection, Power Management.
     static let cardHeading = Font.title3.weight(.semibold)
     /// Headings within sheets, schedule titles and times.
     static let sectionTitle = Font.headline
