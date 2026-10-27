@@ -275,8 +275,9 @@ private struct UPSIdentityHeader: View {
     }
 }
 
-/// The battery self-test, for a UPS whose server offers one: how the last
-/// test went and a button to run another, which always warns first.
+/// The battery self-test, for a UPS whose server offers one and that has a
+/// saved NUT sign-in: how the last test went and a button to run another,
+/// which always warns first.
 private struct SelfTestRow: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var monitor: UPSMonitor
@@ -285,7 +286,8 @@ private struct SelfTestRow: View {
     let reading: UPSReading?
 
     var body: some View {
-        if let test = MenuBarPresentation.selfTestCommand(supported: monitor.commands(for: device)) {
+        if MenuBarPresentation.canRunCommands(on: device),
+           let test = MenuBarPresentation.selfTestCommand(supported: monitor.commands(for: device)) {
             VStack(spacing: 0) {
                 DashboardDivider()
                 HStack(spacing: 12) {
@@ -299,8 +301,6 @@ private struct SelfTestRow: View {
                     if monitor.isBusy(device) {
                         ProgressView().controlSize(.small)
                     }
-                    // Always the same button: the warning that follows asks for
-                    // a NUT sign-in itself when none is saved.
                     Button(test.title) { appModel.requestBatteryTest(test, on: device) }
                         .disabled(monitor.isBusy(device) || state.reading == nil)
                         .help("Checks the battery by running the UPS on it briefly. You'll be warned first.")

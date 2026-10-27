@@ -207,8 +207,7 @@ enum MenuBarPresentation {
 
     /// The one battery self-test the window offers: a quick test where the
     /// UPS has one, otherwise its plain test. Whether the user is signed in
-    /// to run it is a separate question, so a UPS that can be tested still
-    /// shows the test with a way to sign in.
+    /// to run it is checked separately, with `canRunCommands(on:)`.
     static func selfTestCommand(supported: [String]) -> OfferedCommand? {
         if supported.contains("test.battery.start.quick") {
             return OfferedCommand(command: "test.battery.start.quick", title: "Run Self-Test…")

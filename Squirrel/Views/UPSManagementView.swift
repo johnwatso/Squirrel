@@ -178,22 +178,18 @@ struct UPSManagementView: View {
         Button("Remove UPS…", role: .destructive) { deviceToRemove = device }
     }
 
-    /// The same commands as the menu bar's Controls submenu. Without a NUT
-    /// sign-in they can't run, so the submenu offers the sign-in instead of
-    /// disappearing, as long as the UPS has something worth signing in for.
+    /// The same commands as the menu bar's Controls submenu, for a UPS with a
+    /// saved NUT sign-in: the server runs commands for no one else.
     @ViewBuilder
     private func commandsMenu(for device: UPSDevice) -> some View {
         let offered = MenuBarPresentation.offeredCommands(
             supported: monitor.commands(for: device),
             reading: monitor.state(for: device).reading,
-            signedIn: true
+            signedIn: MenuBarPresentation.canRunCommands(on: device)
         )
         if !offered.isEmpty {
-            let signedIn = MenuBarPresentation.canRunCommands(on: device)
             Menu("UPS Commands") {
-                // Battery tests are always offered: their warning asks for a
-                // sign-in itself. Other commands need one saved first.
-                ForEach(offered.filter { signedIn || MenuBarPresentation.needsBatteryWarning($0.command) }, id: \.command) { item in
+                ForEach(offered, id: \.command) { item in
                     Button(item.title) {
                         if MenuBarPresentation.needsBatteryWarning(item.command) {
                             appModel.requestBatteryTest(item, on: device)
@@ -202,10 +198,6 @@ struct UPSManagementView: View {
                         }
                     }
                     .disabled(monitor.isBusy(device))
-                }
-                if !signedIn, offered.contains(where: { !MenuBarPresentation.needsBatteryWarning($0.command) }) {
-                    Divider()
-                    Button("Sign In to Run Other Commands…") { appModel.beginSigningIn(device) }
                 }
             }
         }
@@ -258,8 +250,8 @@ struct UPSManagementView: View {
 /// The warning before a battery test or calibration. Running one puts the
 /// load on the battery on purpose, and a battery that fails partway through
 /// cuts power to this Mac with no clean shutdown, so this says so plainly and
-/// leaves Cancel as the safe choice. A UPS without a saved NUT sign-in asks
-/// for one here rather than sending people to the connection editor.
+/// leaves Cancel as the safe choice. Only offered for a UPS with a saved NUT
+/// sign-in, which the server needs before it runs any command.
 struct BatteryTestSheet: View {
     @EnvironmentObject private var appModel: AppModel
     @Environment(\.dismiss) private var dismiss
@@ -267,13 +259,10 @@ struct BatteryTestSheet: View {
     let device: UPSDevice
     let command: MenuBarPresentation.OfferedCommand
 
-    @State private var username = ""
-    @State private var password = ""
     @State private var isRunning = false
     @State private var failure: (title: String, message: String)?
 
     private var isCalibration: Bool { command.command == "calibrate.start" }
-    private var needsSignIn: Bool { !MenuBarPresentation.canRunCommands(on: device) }
     private var actionTitle: String { isCalibration ? "Start Calibration" : "Run Self-Test" }
 
     var body: some View {
@@ -288,10 +277,6 @@ struct BatteryTestSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             warning
-
-            if needsSignIn {
-                signIn
-            }
 
             if let failure {
                 Label {
@@ -313,7 +298,7 @@ struct BatteryTestSheet: View {
                     .keyboardShortcut(.cancelAction)
                 // Deliberately not the default button: Return must not start it.
                 Button(actionTitle, action: run)
-                    .disabled(isRunning || (needsSignIn && username.trimmingCharacters(in: .whitespaces).isEmpty))
+                    .disabled(isRunning)
             }
             .padding(.top, 4)
         }
@@ -342,39 +327,15 @@ struct BatteryTestSheet: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var signIn: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Your NUT server only runs tests for a user allowed to send it commands.")
-                .fixedSize(horizontal: false, vertical: true)
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                GridRow {
-                    Text("Username").foregroundStyle(.secondary)
-                    TextField("Username", text: $username).labelsHidden().autocorrectionDisabled()
-                }
-                GridRow {
-                    Text("Password").foregroundStyle(.secondary)
-                    SecureField("Password", text: $password).labelsHidden()
-                }
-            }
-            .textFieldStyle(.roundedBorder)
-            Text("Saved to this UPS's connection once the server accepts the test. Passwords are stored in your login Keychain.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .disabled(isRunning)
-    }
-
     private func run() {
         isRunning = true
         failure = nil
-        let typed = needsSignIn ? username.trimmingCharacters(in: .whitespaces) : nil
         Task {
             do {
-                try await appModel.runBatteryTest(command.command, on: device, username: typed, password: needsSignIn ? password : nil)
+                try await appModel.monitor.runInstantCommand(command.command, on: device)
                 dismiss()
             } catch {
-                let refusal = MenuBarPresentation.commandRefusal(error, commandTitle: actionTitle, username: typed ?? device.username)
+                let refusal = MenuBarPresentation.commandRefusal(error, commandTitle: actionTitle, username: device.username)
                 failure = (refusal.title, refusal.message)
             }
             isRunning = false

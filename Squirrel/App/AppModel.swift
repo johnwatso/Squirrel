@@ -263,35 +263,6 @@ final class AppModel: ObservableObject {
         triggerOpenManageWindow()
     }
 
-    /// Runs a confirmed battery test. With a saved sign-in it goes through
-    /// the monitor's own connection. Otherwise it signs in with the details
-    /// typed into the warning, on a connection of its own, and saves them
-    /// only once the server has accepted the command, so a mistyped
-    /// password is never stored.
-    func runBatteryTest(_ command: String, on device: UPSDevice, username: String?, password: String?) async throws {
-        guard let username, !username.isEmpty else {
-            try await monitor.runInstantCommand(command, on: device)
-            return
-        }
-        var signedIn = device
-        signedIn.username = username
-        let password = password?.isEmpty == false ? password : nil
-        let client = NUTClient(configuration: signedIn.clientConfiguration(password: password))
-        do {
-            try await client.connect()
-            try await client.instantCommand(command, ups: device.upsName)
-            await client.disconnect()
-        } catch {
-            await client.abort()
-            throw error
-        }
-        guard var current = settings.device(id: device.id) else { return }
-        current.username = username
-        settings.credentialStore.setPassword(password, forAccount: current.keychainAccount)
-        settings.upsert(current)
-        monitor.restart()
-    }
-
     /// Credential repairs use the existing-device editor, not onboarding.
     func beginSigningIn(_ device: UPSDevice) {
         editConnection(device)
