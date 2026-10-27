@@ -849,8 +849,14 @@ struct ConnectionAssistantView: View {
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)
         case .connectedOnly:
-            Button("Try Again") { Task { await assistant.retryConnection() } }
-                .assistantSecondaryButton()
+            // Trying again can't help when sharing is simply switched off.
+            if assistant.isSharingOff {
+                Button("Share with macOS") { Task { await assistant.shareWithMacOS() } }
+                    .assistantSecondaryButton()
+            } else {
+                Button("Try Again") { Task { await assistant.retryConnection() } }
+                    .assistantSecondaryButton()
+            }
             Button("Done") { onFinish(assistant.connectedDevice) }
                 .assistantPrimaryButton()
                 .keyboardShortcut(.defaultAction)

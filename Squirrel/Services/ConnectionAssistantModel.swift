@@ -572,6 +572,17 @@ final class ConnectionAssistantModel: ObservableObject {
         await connect()
     }
 
+    /// Whether sharing with macOS is switched off in Squirrel's settings,
+    /// the one connected-only result that trying again can't change.
+    var isSharingOff: Bool { !settings.preferences.publishPowerSource }
+
+    /// Turns sharing with macOS on, the same switch as Settings ▸ Power, and
+    /// runs the connection again so the result says whether macOS sees it.
+    func shareWithMacOS() async {
+        settings.preferences.publishPowerSource = true
+        await connect()
+    }
+
     func returnToSelection() {
         outcome = nil
         stages = []
