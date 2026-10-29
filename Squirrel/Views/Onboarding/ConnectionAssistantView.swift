@@ -169,7 +169,7 @@ struct ConnectionAssistantView: View {
                 AssistantFeatureRow(
                     symbol: "clock.arrow.circlepath",
                     tint: .orange,
-                    title: "Power History",
+                    title: "UPS History",
                     detail: "Track power events and review past activity."
                 )
             }

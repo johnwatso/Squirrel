@@ -13,6 +13,8 @@ struct PowerSample: Identifiable, Equatable, Sendable {
     var runtime: Double?
     /// True if the UPS was on battery at any point in this interval.
     var onBattery: Bool
+    /// Degrees Celsius, from the UPS or else its battery. Few UPSes report it.
+    var temperature: Double? = nil
 
     var id: Date { date }
 }
@@ -211,6 +213,7 @@ private struct Accumulator {
     private var load = Mean()
     private var charge = Mean()
     private var runtime = Mean()
+    private var temperature = Mean()
     private var onBattery = false
 
     init(minute: Int) {
@@ -222,6 +225,7 @@ private struct Accumulator {
         load.add(reading.load.map(Double.init))
         charge.add(reading.batteryCharge.map(Double.init))
         runtime.add(reading.batteryRuntime.map(Double.init))
+        temperature.add(reading.number("ups.temperature") ?? reading.number("battery.temperature"))
         onBattery = onBattery || reading.status.isRunningOnBattery
     }
 
@@ -232,7 +236,8 @@ private struct Accumulator {
             load: load.value,
             charge: charge.value,
             runtime: runtime.value,
-            onBattery: onBattery
+            onBattery: onBattery,
+            temperature: temperature.value
         )
     }
 
@@ -287,10 +292,28 @@ actor PowerHistoryStore {
             );
             CREATE INDEX IF NOT EXISTS events_device_t ON events(device, t);
             """
-        guard sqlite3_exec(handle, schema, nil, nil, nil) == SQLITE_OK else {
+        guard sqlite3_exec(handle, schema, nil, nil, nil) == SQLITE_OK,
+              Self.migrate(handle) else {
             sqlite3_close(handle)
             return nil
         }
+    }
+
+    /// Columns added after the first release of the file. `user_version`
+    /// records how far a database has come, so each step runs once.
+    private static func migrate(_ handle: OpaquePointer?) -> Bool {
+        var version: Int32 = 0
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(handle, "PRAGMA user_version", -1, &statement, nil) == SQLITE_OK,
+           sqlite3_step(statement) == SQLITE_ROW {
+            version = sqlite3_column_int(statement, 0)
+        }
+        sqlite3_finalize(statement)
+        if version < 1 {
+            let step = "ALTER TABLE samples ADD COLUMN temperature REAL; PRAGMA user_version = 1;"
+            guard sqlite3_exec(handle, step, nil, nil, nil) == SQLITE_OK else { return false }
+        }
+        return true
     }
 
     deinit {
@@ -298,7 +321,7 @@ actor PowerHistoryStore {
     }
 
     func insertSample(device: UUID, sample: PowerSample) {
-        run("INSERT INTO samples (device, t, power, load, charge, runtime, on_battery) VALUES (?, ?, ?, ?, ?, ?, ?)") { statement in
+        run("INSERT INTO samples (device, t, power, load, charge, runtime, on_battery, temperature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)") { statement in
             bind(device.uuidString, at: 1, in: statement)
             sqlite3_bind_double(statement, 2, sample.date.timeIntervalSince1970)
             bind(sample.power, at: 3, in: statement)
@@ -306,6 +329,7 @@ actor PowerHistoryStore {
             bind(sample.charge, at: 5, in: statement)
             bind(sample.runtime, at: 6, in: statement)
             sqlite3_bind_int(statement, 7, sample.onBattery ? 1 : 0)
+            bind(sample.temperature, at: 8, in: statement)
         }
     }
 
@@ -332,7 +356,7 @@ actor PowerHistoryStore {
     /// reporting a value mid-bucket does not drag the average towards zero.
     func samples(device: UUID, since: Date, bucket: TimeInterval) -> [PowerSample] {
         let sql = """
-            SELECT CAST(t / ?1 AS INTEGER) * ?1 AS b, AVG(power), AVG(load), AVG(charge), AVG(runtime), MAX(on_battery)
+            SELECT CAST(t / ?1 AS INTEGER) * ?1 AS b, AVG(power), AVG(load), AVG(charge), AVG(runtime), MAX(on_battery), AVG(temperature)
             FROM samples WHERE device = ?2 AND t >= ?3
             GROUP BY b ORDER BY b
             """
@@ -348,7 +372,8 @@ actor PowerHistoryStore {
                 load: column(statement, 2),
                 charge: column(statement, 3),
                 runtime: column(statement, 4),
-                onBattery: sqlite3_column_int(statement, 5) != 0
+                onBattery: sqlite3_column_int(statement, 5) != 0,
+                temperature: column(statement, 6)
             ))
         }
         return result

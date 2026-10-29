@@ -9,6 +9,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
     case load
     case charge
     case runtime
+    case temperature
 
     var id: String { rawValue }
 
@@ -18,6 +19,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
         case .load: return "UPS Load"
         case .charge: return "Battery Charge"
         case .runtime: return "Estimated Runtime"
+        case .temperature: return "Temperature"
         }
     }
 
@@ -28,6 +30,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
         case .charge: return sample.charge
         // Plotted in minutes: an axis reading "3,600" helps nobody.
         case .runtime: return sample.runtime.map { $0 / 60 }
+        case .temperature: return sample.temperature
         }
     }
 
@@ -36,6 +39,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
         case .power: return "\(Int(value.rounded())) W"
         case .load, .charge: return "\(Int(value.rounded()))%"
         case .runtime: return UPSTelemetry.duration(seconds: Int(value * 60))
+        case .temperature: return "\(Int(value.rounded())) °C"
         }
     }
 
@@ -45,7 +49,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
         guard !values.isEmpty else { return nil }
         let average = values.reduce(0, +) / Double(values.count)
         switch self {
-        case .power, .load:
+        case .power, .load, .temperature:
             return "Average \(format(average)) · Peak \(format(values.max() ?? average))"
         case .charge, .runtime:
             return "Lowest \(format(values.min() ?? average))"
@@ -55,9 +59,12 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
     var fixedDomain: ClosedRange<Double>? {
         switch self {
         case .charge: return 0...100
-        case .power, .load, .runtime: return nil
+        case .power, .load, .runtime, .temperature: return nil
         }
     }
+
+    /// A temperature axis from zero would flatten every change into a line.
+    var includesZero: Bool { self != .temperature }
 }
 
 /// A line over time, with outages shaded behind it.
@@ -169,6 +176,8 @@ struct HistoryChart: View {
         .foregroundStyle(Color.accentColor)
         if let domain = metric.fixedDomain {
             base.chartYScale(domain: domain)
+        } else if !metric.includesZero {
+            base.chartYScale(domain: .automatic(includesZero: false))
         } else {
             base
         }
@@ -222,9 +231,9 @@ struct PowerHistoryView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // The window title already says Power History.
-            Text(device.map { "Power readings and events for \($0.displayName)." }
-                 ?? "Power readings and events for your UPS.")
+            // The window title already says UPS History.
+            Text(device.map { "Readings and events for \($0.displayName)." }
+                 ?? "Readings and events for your UPS.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

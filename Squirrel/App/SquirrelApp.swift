@@ -65,7 +65,7 @@ struct SquirrelApp: App {
         .windowToolbarStyle(.unified)
         .commands { SquirrelCommands(appModel: appModel) }
 
-        Window("Power History", id: AppModel.historyWindowID) {
+        Window("UPS History", id: AppModel.historyWindowID) {
             PowerHistoryView()
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
@@ -152,7 +152,7 @@ private struct SquirrelCommands: Commands {
                 .keyboardShortcut("n")
         }
         CommandGroup(after: .windowArrangement) {
-            Button("Show Power History") { appModel.showHistory() }
+            Button("Show UPS History") { appModel.showHistory() }
                 .keyboardShortcut("y")
         }
     }

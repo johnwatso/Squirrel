@@ -49,7 +49,7 @@ struct UPSManagementView: View {
             Button("Remove UPS", role: .destructive) { remove(device) }
             Button("Cancel", role: .cancel) { deviceToRemove = nil }
         } message: { _ in
-            Text("Squirrel will stop monitoring this UPS, macOS will no longer see it as a power source, and its power history will be deleted. A UPS that is simply offline will reconnect on its own.")
+            Text("Squirrel will stop monitoring this UPS, macOS will no longer see it as a power source, and its history will be deleted. A UPS that is simply offline will reconnect on its own.")
         }
         .alert(
             "Rename UPS",
@@ -106,9 +106,9 @@ struct UPSManagementView: View {
                 .help("Actions")
 
                 Button { appModel.showHistory(for: selectedDevice) } label: {
-                    Label("Power History", systemImage: "clock.arrow.circlepath")
+                    Label("UPS History", systemImage: "clock.arrow.circlepath")
                 }
-                .help("Power History")
+                .help("UPS History")
             }
         }
     }
@@ -185,7 +185,7 @@ struct UPSManagementView: View {
         if settings.devices.count > 1, !device.publishesToSystem {
             Button("Share with macOS") { appModel.useForMacProtection(device) }
         }
-        Button("Show Power History") { appModel.showHistory(for: device) }
+        Button("Show UPS History") { appModel.showHistory(for: device) }
         Divider()
         Button("Remove UPS…", role: .destructive) { deviceToRemove = device }
     }

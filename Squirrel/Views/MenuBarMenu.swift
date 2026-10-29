@@ -145,7 +145,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
             appModel.triggerOpenManageWindow()
         })
         if !devices.isEmpty {
-            entries.append(.action(id: "history", title: "Power History", symbol: "clock.arrow.circlepath", key: "y") { [appModel] in
+            entries.append(.action(id: "history", title: "UPS History", symbol: "clock.arrow.circlepath", key: "y") { [appModel] in
                 appModel.showHistory()
             })
         }
@@ -214,7 +214,7 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         var entry = MenuEntry(id: device.id.uuidString, title: "\(device.displayName) — \(status.title)")
         entry.submenu = summary(for: device, prefix: device.id.uuidString) + [
             .separator("\(device.id).history"),
-            .action(id: "\(device.id).history", title: "Power History", symbol: "clock.arrow.circlepath") { [appModel] in
+            .action(id: "\(device.id).history", title: "UPS History", symbol: "clock.arrow.circlepath") { [appModel] in
                 appModel.showHistory(for: device)
             },
         ]
