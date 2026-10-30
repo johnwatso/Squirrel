@@ -227,14 +227,41 @@ public actor NUTClient {
     private func write(_ command: String) async throws {
         guard let connection else { throw NUTError.notConnected }
         let data = Data((command + "\n").utf8)
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        try await withTransportDeadline(on: connection) { (finish: @escaping (Result<Void, Error>) -> Void) in
             connection.send(content: data, completion: .contentProcessed { error in
                 if let error {
-                    continuation.resume(throwing: NUTError.connectionFailed(Self.describe(error)))
+                    finish(.failure(NUTError.connectionFailed(Self.describe(error))))
                 } else {
-                    continuation.resume()
+                    finish(.success(()))
                 }
             })
+        }
+    }
+
+    /// Runs one send or receive with the configured timeout. A server that
+    /// accepts the socket and then goes silent never completes either call,
+    /// and without this the monitor's poll loop would wait on it forever
+    /// instead of retrying. On any transport failure the socket is discarded,
+    /// so the next connect() opens a fresh one rather than reusing a dead one.
+    private func withTransportDeadline<T: Sendable>(
+        on connection: NWConnection,
+        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+    ) async throws -> T {
+        let timeout = configuration.timeout
+        do {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+                let resumed = OneShot()
+                operation { result in resumed.resume { continuation.resume(with: result) } }
+                queue.asyncAfter(deadline: .now() + timeout) {
+                    resumed.resume {
+                        connection.cancel()
+                        continuation.resume(throwing: NUTError.timedOut)
+                    }
+                }
+            }
+        } catch {
+            if self.connection === connection { abort() }
+            throw error
         }
     }
 
@@ -273,16 +300,16 @@ public actor NUTClient {
 
     private func receive() async throws -> Data {
         guard let connection else { throw NUTError.notConnected }
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+        return try await withTransportDeadline(on: connection) { (finish: @escaping (Result<Data, Error>) -> Void) in
             connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
                 if let error {
-                    continuation.resume(throwing: NUTError.connectionFailed(Self.describe(error)))
+                    finish(.failure(NUTError.connectionFailed(Self.describe(error))))
                 } else if let data, !data.isEmpty {
-                    continuation.resume(returning: data)
+                    finish(.success(data))
                 } else if isComplete {
-                    continuation.resume(throwing: NUTError.notConnected)
+                    finish(.failure(NUTError.notConnected))
                 } else {
-                    continuation.resume(returning: Data())
+                    finish(.success(Data()))
                 }
             }
         }

@@ -39,9 +39,35 @@ final class UPSReconnectTests: XCTestCase {
         return bound ? UInt16(bigEndian: address.sin_port) : nil
     }
 
+    /// A server that accepts the socket and then never answers used to leave
+    /// reading() waiting forever, which stalled the monitor's poll loop for
+    /// good. It must time out, and the next connect must open a fresh socket.
+    func testSilentServerTimesOutAndNextConnectionRecovers() async throws {
+        let server = try DroppingNUTServer(firstConnection: .silent)
+        let port = try await server.start()
+        defer { server.stop() }
+        let client = NUTClient(configuration: .init(host: "127.0.0.1", port: port, timeout: 1))
+
+        try await client.connect()
+        let started = Date()
+        do {
+            _ = try await client.reading(ups: "rack")
+            XCTFail("A server that never answers must not produce a reading")
+        } catch {
+            XCTAssertEqual(error as? NUTError, .timedOut)
+            XCTAssertLessThan(Date().timeIntervalSince(started), 3, "The read should give up at the timeout")
+        }
+        let stillConnected = await client.isConnected
+        XCTAssertFalse(stillConnected, "A timed-out socket must be discarded, not reused")
+
+        try await client.connect()
+        let recovered = try await client.reading(ups: "rack")
+        XCTAssertEqual(recovered.batteryCharge, 42)
+    }
+
     @MainActor
     func testMonitorOpensFreshSocketAfterServerDropsConnection() async throws {
-        let server = try DroppingNUTServer()
+        let server = try DroppingNUTServer(firstConnection: .dropsAfterOneReading)
         let port = try await server.start()
         defer { server.stop() }
         let suite = "SquirrelTests.Reconnect.\(UUID())"
@@ -70,15 +96,22 @@ private struct NoCredentials: CredentialStoring {
     func setPassword(_ password: String?, forAccount account: String) {}
 }
 
-/// All mutable fixture state is confined to queue. The first socket supplies
-/// one reading, then closes; later sockets supply a distinct recovered value.
+/// All mutable fixture state is confined to queue. The first socket either
+/// supplies one reading and then closes, or never answers at all; later
+/// sockets supply a distinct recovered value.
 private final class DroppingNUTServer: @unchecked Sendable {
+    enum FirstConnection { case dropsAfterOneReading, silent }
+
     let listener: NWListener
+    let firstConnection: FirstConnection
     let queue = DispatchQueue(label: "SquirrelTests.NUTReconnect")
     private var deliveredStart = false
     private var peers: [Peer] = []
 
-    init() throws { listener = try NWListener(using: .tcp, on: .any) }
+    init(firstConnection: FirstConnection) throws {
+        self.firstConnection = firstConnection
+        listener = try NWListener(using: .tcp, on: .any)
+    }
 
     func start() async throws -> UInt16 {
         try await withCheckedThrowingContinuation { continuation in
@@ -95,7 +128,10 @@ private final class DroppingNUTServer: @unchecked Sendable {
                 }
             }
             listener.newConnectionHandler = { [self] connection in
-                let peer = Peer(connection: connection, queue: queue, drops: peers.isEmpty)
+                let first = peers.isEmpty
+                let peer = Peer(connection: connection, queue: queue,
+                                drops: first && firstConnection == .dropsAfterOneReading,
+                                silent: first && firstConnection == .silent)
                 peers.append(peer)
                 peer.start()
             }
@@ -117,17 +153,21 @@ private final class DroppingNUTServer: @unchecked Sendable {
         let connection: NWConnection
         let queue: DispatchQueue
         let drops: Bool
+        let silent: Bool
         var buffer = ""
         var readings = 0
-        init(connection: NWConnection, queue: DispatchQueue, drops: Bool) {
+        init(connection: NWConnection, queue: DispatchQueue, drops: Bool, silent: Bool) {
             self.connection = connection
             self.queue = queue
             self.drops = drops
+            self.silent = silent
         }
         func start() { connection.start(queue: queue); receive() }
         func receive() {
             connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [self] data, _, complete, error in
                 guard error == nil, !complete, let data else { return }
+                // Holds the socket open and reads, but never replies.
+                if silent { receive(); return }
                 buffer += String(decoding: data, as: UTF8.self)
                 while let end = buffer.firstIndex(of: "\n") {
                     let command = String(buffer[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
