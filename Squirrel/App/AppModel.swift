@@ -134,7 +134,8 @@ final class AppModel: ObservableObject {
                     // depends on.
                     guard let self else { return }
                     for device in self.settings.devices {
-                        self.history.record(kind, for: device.id, detail: "Reported by macOS. The cause and completion are not verified.")
+                        // The event's source line already says macOS reported it.
+                        self.history.record(kind, for: device.id)
                     }
                 }
             }

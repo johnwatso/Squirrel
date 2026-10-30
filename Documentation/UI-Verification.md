@@ -357,3 +357,19 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
 - New events (unstable connection, monitoring started, paused, resumed and
   quit) are covered by tests only; the quit path was not exercised in the live
   app.
+
+## History window events, Otter style — 31 October 2026
+
+- The history window drops its grouped Form for Otter's Activity Log layout:
+  one scroll view with 16 pt margins, so the 24-hour summary, chart cards and
+  event cards share their edges. Events are grouped into day cards ("Today ·
+  31 October 2026"), with a 20 pt icon column, a semibold title over a
+  one-line detail, the time right-aligned in monospaced digits, and a chevron
+  that opens Source and Time. Back-to-back repeats fold into one "×N" row.
+- The event cards were rendered offscreen in light and dark with sample
+  events. The chart cards and the whole window were not seen in the live app.
+- Hovering a chart marks the nearest reading with a rule and point and shows
+  its time and value; Temperature lists UPS and This Mac. The callout sits
+  right of the pointer, or left in the right half. Rendered offscreen with a
+  reading pre-selected, in light and dark; not yet tried with a real pointer.
+  Gaps in the recording show no callout.

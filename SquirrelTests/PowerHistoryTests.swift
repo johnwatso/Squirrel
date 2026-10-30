@@ -116,6 +116,37 @@ final class PowerHistoryTests: XCTestCase {
         XCTAssertEqual(samples.map(\.macTemperature), [nil, 33])
     }
 
+    /// Back-to-back repeats fold into one row; anything in between, or a
+    /// different detail, keeps them apart.
+    func testRepeatedEventsFoldIntoOneRow() {
+        let now = Date()
+        func event(_ id: Int64, _ kind: PowerEventKind, _ detail: String? = nil) -> PowerEvent {
+            PowerEvent(id: id, date: now.addingTimeInterval(-Double(id) * 60), kind: kind, detail: detail)
+        }
+        let runs = EventRun.runs(from: [
+            event(1, .monitoringStarted), event(2, .monitoringStarted), event(3, .powerRestored, "100%"),
+            event(4, .monitoringStarted), event(5, .connectionUnstable, "Dropped 3 times"), event(6, .connectionUnstable, "Dropped 4 times"),
+        ])
+        XCTAssertEqual(runs.map(\.events.count), [2, 1, 1, 1, 1])
+    }
+
+    /// Hovering picks the closest reading, but not across a gap in the
+    /// recording, and not one with nothing to show for this chart.
+    func testHoverPicksTheClosestRecordedReading() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let samples = [
+            PowerSample(date: start, power: 100, onBattery: false),
+            PowerSample(date: start.addingTimeInterval(300), power: nil, onBattery: false),
+            PowerSample(date: start.addingTimeInterval(600), power: 120, onBattery: false),
+        ]
+        let nearest = { (offset: TimeInterval) in
+            HistoryChart.nearest(to: start.addingTimeInterval(offset), in: samples, metric: .power, within: 450)?.power
+        }
+        XCTAssertEqual(nearest(100), 100)
+        XCTAssertEqual(nearest(320), 120, "The middle sample has no power to show")
+        XCTAssertNil(nearest(2_000), "Past the last reading is a gap, not that reading")
+    }
+
     /// Writes hop onto the store's actor; give them a moment to land.
     private func waitForWrites(_ history: PowerHistory) async throws {
         try await Task.sleep(nanoseconds: 100_000_000)

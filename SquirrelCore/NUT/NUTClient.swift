@@ -261,7 +261,7 @@ public actor NUTClient {
     private func write(_ command: String) async throws {
         guard let connection else { throw NUTError.notConnected }
         let data = Data((command + "\n").utf8)
-        try await withTransportDeadline(on: connection) { (finish: @escaping (Result<Void, Error>) -> Void) in
+        try await withTransportDeadline(on: connection) { (finish: @escaping @Sendable (Result<Void, Error>) -> Void) in
             connection.send(content: data, completion: .contentProcessed { error in
                 if let error {
                     finish(.failure(NUTError.connectionFailed(Self.describe(error))))
@@ -279,7 +279,7 @@ public actor NUTClient {
     /// so the next connect() opens a fresh one rather than reusing a dead one.
     private func withTransportDeadline<T: Sendable>(
         on connection: NWConnection,
-        _ operation: @escaping (@escaping (Result<T, Error>) -> Void) -> Void
+        _ operation: @escaping (@escaping @Sendable (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
         let timeout = configuration.timeout
         do {
@@ -334,7 +334,7 @@ public actor NUTClient {
 
     private func receive() async throws -> Data {
         guard let connection else { throw NUTError.notConnected }
-        return try await withTransportDeadline(on: connection) { (finish: @escaping (Result<Data, Error>) -> Void) in
+        return try await withTransportDeadline(on: connection) { (finish: @escaping @Sendable (Result<Data, Error>) -> Void) in
             connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
                 if let error {
                     finish(.failure(NUTError.connectionFailed(Self.describe(error))))
