@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		040E1B9DB29209758CBD6709 /* UPSDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C94C6D7E83E25F9A80E754 /* UPSDetailView.swift */; };
 		084A45AC14C41DAC3DAD8614 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590DAD026CC235986FFB4FF7 /* LoginItemService.swift */; };
+		0E341CA5053587FFB78EC3EE /* MacTemperatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F7A3A383B87C30269EF1BA1 /* MacTemperatureTests.swift */; };
 		0EDA19EF7D8945BCEEF031E7 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F5AC8DFC68074078F46EE5 /* PreferencesView.swift */; };
 		131A98E97E1E26644EC835E7 /* PowerHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D6C3D8C2757A791239AEFD /* PowerHistory.swift */; };
 		150B4F91223D8B8E42065BEF /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A619B9C5EE66679AACFF771 /* SettingsStore.swift */; };
@@ -48,6 +49,7 @@
 		A0EDA755E61C1241A3A4C74F /* SquirrelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6147DFC2E41DAF635F023387 /* SquirrelApp.swift */; };
 		ACEB73F92BB130EE5885DC7A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A2B69A4E4726F4CA84113D /* NotificationService.swift */; };
 		AEB6E25FA2E0CA8FA592D0E0 /* PowerProfileAdvisorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A56F073EAA3C7948D84488B /* PowerProfileAdvisorTests.swift */; };
+		AF255D1037D8D3EEA40C6BFF /* MacTemperatureSensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A17ACBCAF8EA86D56FB3A /* MacTemperatureSensors.swift */; };
 		B6729272FFF3E919E2EB3DF5 /* ConnectionAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D023D50C6F993479A46F53 /* ConnectionAssistantView.swift */; };
 		B8909496AEC94E8C627356B2 /* libSquirrelCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F1608944ECBC9AA7CD2E8950 /* libSquirrelCore.a */; };
 		BB6A793FAA9815A547D7CA0C /* UIRefinementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD232D698DC27A2FAEB00B4 /* UIRefinementTests.swift */; };
@@ -155,8 +157,10 @@
 		615986FF006E2E644F42F535 /* NUTProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUTProtocolTests.swift; sourceTree = "<group>"; };
 		6952B14DB4C594A2F74AE327 /* squirrelctl */ = {isa = PBXFileReference; includeInIndex = 0; path = squirrelctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B1AECDD06F9FCCA443B1278 /* PowerHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerHistoryView.swift; sourceTree = "<group>"; };
+		6F7A3A383B87C30269EF1BA1 /* MacTemperatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTemperatureTests.swift; sourceTree = "<group>"; };
 		72D9ED1BE19DD453E411BB61 /* SystemPowerSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPowerSources.swift; sourceTree = "<group>"; };
 		750BE9F326E536232F7B0532 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		7C2A17ACBCAF8EA86D56FB3A /* MacTemperatureSensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTemperatureSensors.swift; sourceTree = "<group>"; };
 		82D6C3D8C2757A791239AEFD /* PowerHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerHistory.swift; sourceTree = "<group>"; };
 		8B26C55D6331534D0517F30A /* NUTProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NUTProtocol.swift; sourceTree = "<group>"; };
 		8B450D9DA1E2B32D9347DE24 /* Squirrel.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = Squirrel.icon; sourceTree = "<group>"; };
@@ -242,6 +246,7 @@
 			isa = PBXGroup;
 			children = (
 				BBA9803A3FD1ECBA176B4B2B /* ConnectionEditorTests.swift */,
+				6F7A3A383B87C30269EF1BA1 /* MacTemperatureTests.swift */,
 				056CED33FD01B6BED72CAFD0 /* MenuBarPresentationTests.swift */,
 				EE8DD487783297CEBA27E666 /* NUTDiscoveryTests.swift */,
 				615986FF006E2E644F42F535 /* NUTProtocolTests.swift */,
@@ -273,6 +278,7 @@
 		4D69D8A4B02351BAE3930C48 /* PowerSource */ = {
 			isa = PBXGroup;
 			children = (
+				7C2A17ACBCAF8EA86D56FB3A /* MacTemperatureSensors.swift */,
 				024ECFA1E1C6A97C7F46D506 /* PowerSourcePublisher.swift */,
 				095160C9CF30539EE17B2DA9 /* PowerSourceSnapshot.swift */,
 				72D9ED1BE19DD453E411BB61 /* SystemPowerSources.swift */,
@@ -612,6 +618,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				984071A343CDCB8344A1BFC5 /* ConnectionEditorTests.swift in Sources */,
+				0E341CA5053587FFB78EC3EE /* MacTemperatureTests.swift in Sources */,
 				D6AD9A3409BABB1B46113BD5 /* MenuBarPresentationTests.swift in Sources */,
 				FD329D9A884442F1275D5253 /* NUTDiscoveryTests.swift in Sources */,
 				9CF39577A2E95F95735D4B54 /* NUTProtocolTests.swift in Sources */,
@@ -640,6 +647,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF255D1037D8D3EEA40C6BFF /* MacTemperatureSensors.swift in Sources */,
 				C1767D888E883F30FE98568A /* NUTClient.swift in Sources */,
 				40B4BE4FB6E7F93F111DBE43 /* NUTDiscovery.swift in Sources */,
 				EBE16D99746819C0D7289396 /* NUTProtocol.swift in Sources */,

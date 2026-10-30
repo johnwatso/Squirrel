@@ -34,6 +34,21 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    /// A second line on the same axis. Only temperature has one: this Mac's
+    /// chip, so a hot cupboard shows up in both.
+    func comparisonValue(_ sample: PowerSample) -> Double? {
+        self == .temperature ? sample.macTemperature : nil
+    }
+
+    /// What each line is called, when there are two.
+    var lineNames: (primary: String, comparison: String)? {
+        self == .temperature ? ("UPS", "This Mac") : nil
+    }
+
+    func hasData(in samples: [PowerSample]) -> Bool {
+        samples.contains { value($0) != nil || comparisonValue($0) != nil }
+    }
+
     func format(_ value: Double) -> String {
         switch self {
         case .power: return "\(Int(value.rounded())) W"
@@ -45,6 +60,12 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
 
     /// A short summary of the range: what people actually ask of a chart.
     func summary(_ samples: [PowerSample]) -> String? {
+        if let names = lineNames {
+            let parts = [(names.primary, samples.compactMap(value)), (names.comparison, samples.compactMap(comparisonValue))]
+                .filter { !$0.1.isEmpty }
+                .map { name, values in "\(name) average \(format(values.reduce(0, +) / Double(values.count)))" }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
         let values = samples.compactMap(value)
         guard !values.isEmpty else { return nil }
         let average = values.reduce(0, +) / Double(values.count)
@@ -115,14 +136,16 @@ struct HistoryChart: View {
         }
     }
 
+    private typealias Point = (date: Date, value: Double, segment: Int, isolated: Bool)
+
     /// Points to plot, split into runs wherever Squirrel was not recording.
     /// A line drawn across a night the Mac was off would invent a reading.
-    private var points: [(date: Date, value: Double, segment: Int, isolated: Bool)] {
-        var result: [(date: Date, value: Double, segment: Int, isolated: Bool)] = []
+    private func points(_ value: (PowerSample) -> Double?) -> [Point] {
+        var result: [Point] = []
         var segment = 0
         var previous: Date?
         for sample in samples {
-            guard let value = metric.value(sample) else { previous = nil; continue }
+            guard let value = value(sample) else { previous = nil; continue }
             if let previous, sample.date.timeIntervalSince(previous) <= range.bucket * 2.5 {
                 // Same run.
             } else {
@@ -134,6 +157,30 @@ struct HistoryChart: View {
         // A run of one has no line to draw, so it is shown as a dot.
         let counts = Dictionary(grouping: result, by: \.segment).mapValues(\.count)
         return result.map { ($0.date, $0.value, $0.segment, counts[$0.segment] == 1) }
+    }
+
+    /// Distinct from the accent in both appearances, and from the orange of
+    /// outages.
+    static let comparisonColor = Color.purple
+
+    @ChartContentBuilder
+    private func line(_ points: [Point], name: String, color: Color) -> some ChartContent {
+        ForEach(points, id: \.date) { point in
+            LineMark(
+                x: .value("Time", point.date),
+                y: .value(metric.title, point.value),
+                series: .value("Run", "\(name) \(point.segment)")
+            )
+            .interpolationMethod(.monotone)
+            .lineStyle(StrokeStyle(lineWidth: compact ? 1.5 : 1.75))
+            .foregroundStyle(color)
+            .accessibilityLabel(name)
+            if point.isolated {
+                PointMark(x: .value("Time", point.date), y: .value(metric.title, point.value))
+                    .symbolSize(compact ? 12 : 20)
+                    .foregroundStyle(color)
+            }
+        }
     }
 
     @ViewBuilder
@@ -159,21 +206,11 @@ struct HistoryChart: View {
                     }
                     .accessibilityLabel(event.kind.title + " · " + event.kind.provenance)
             }
-            ForEach(points, id: \.date) { point in
-                LineMark(
-                    x: .value("Time", point.date),
-                    y: .value(metric.title, point.value),
-                    series: .value("Run", point.segment)
-                )
-                .interpolationMethod(.monotone)
-                .lineStyle(StrokeStyle(lineWidth: compact ? 1.5 : 1.75))
-                if point.isolated {
-                    PointMark(x: .value("Time", point.date), y: .value(metric.title, point.value))
-                        .symbolSize(compact ? 12 : 20)
-                }
+            line(points(metric.value), name: metric.lineNames?.primary ?? metric.title, color: .accentColor)
+            if let names = metric.lineNames {
+                line(points(metric.comparisonValue), name: names.comparison, color: Self.comparisonColor)
             }
         }
-        .foregroundStyle(Color.accentColor)
         if let domain = metric.fixedDomain {
             base.chartYScale(domain: domain)
         } else if !metric.includesZero {
@@ -207,7 +244,7 @@ struct PowerHistoryView: View {
     }
 
     private var metrics: [HistoryMetric] {
-        HistoryMetric.allCases.filter { metric in samples.contains { metric.value($0) != nil } }
+        HistoryMetric.allCases.filter { $0.hasData(in: samples) }
     }
 
     var body: some View {
@@ -297,6 +334,14 @@ struct PowerHistoryView: View {
                         HistoryChart(samples: samples, metric: metric, range: range, events: metric == .power ? events : [])
                             .frame(height: 110)
                             .padding(.vertical, 4)
+                        if let names = metric.lineNames {
+                            HStack(spacing: 14) {
+                                LineKey(name: names.primary, color: .accentColor)
+                                LineKey(name: names.comparison, color: HistoryChart.comparisonColor)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
                     } header: {
                         HStack {
                             Text(metric.title)
@@ -313,7 +358,7 @@ struct PowerHistoryView: View {
 
                 Section {
                     if events.isEmpty {
-                        Text("No power events in the last \(range.title.lowercased()).")
+                        Text("No events in the last \(range.title.lowercased()).")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(events) { event in
@@ -413,6 +458,20 @@ private struct PowerHistorySummary: View {
     }
 }
 
+/// Which colour is which line, for a chart that has two.
+private struct LineKey: View {
+    let name: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Capsule().fill(color).frame(width: 12, height: 3)
+                .accessibilityHidden(true)
+            Text(name)
+        }
+    }
+}
+
 private struct EventRow: View {
     let event: PowerEvent
 
@@ -441,10 +500,11 @@ private struct EventRow: View {
 
     private var tint: Color {
         switch event.kind {
-        case .powerLost, .communicationLost: return .orange
+        case .powerLost, .communicationLost, .connectionUnstable: return .orange
         case .lowBattery: return .red
         case .powerRestored, .communicationRestored: return .blue
         case .scheduleChanged, .systemWake, .systemSleep, .systemShutdown: return .purple
+        case .monitoringStarted, .monitoringPaused, .monitoringResumed, .monitoringStopped: return .secondary
         }
     }
 }

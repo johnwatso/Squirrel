@@ -48,6 +48,12 @@ final class UPSMonitor: ObservableObject {
     private var connectionLost: Set<UUID> = []
     /// When polling started failing, so one dropped packet is not an event.
     private var failingSince: [UUID: Date] = [:]
+    /// Failures that recovered inside the grace period, so a connection
+    /// that keeps dropping is noticed even though no single drop counts.
+    private var briefDrops: [UUID: [Date]] = [:]
+    private var unstableRecordedAt: [UUID: Date] = [:]
+    static let unstableWindow: TimeInterval = 10 * 60
+    static let unstableDropCount = 3
 
     private static let verifiedKey = "protectionVerifiedAt"
 
@@ -98,13 +104,18 @@ final class UPSMonitor: ObservableObject {
     /// Pausing withdraws the power source too: a paused monitor must not keep
     /// asserting a healthy UPS that nobody is watching.
     func pause() async {
+        let wasPaused = isPaused
         isPaused = true
         stopAll()
         await publisher.withdraw()
         sleepAssertion.endHoldingAwake()
+        await history.finishWriting(recording: wasPaused ? nil : .monitoringPaused, for: settings.devices.map(\.id))
     }
 
     func resume() {
+        if isPaused {
+            for device in settings.devices { history.record(.monitoringResumed, for: device.id) }
+        }
         isPaused = false
         start()
     }
@@ -210,6 +221,19 @@ final class UPSMonitor: ObservableObject {
     }
 
     private func handle(reading: UPSReading, for device: UPSDevice) async {
+        let wasOnline = states[device.id]?.reading != nil
+        if let since = failingSince[device.id] {
+            // UPSTelemetry.duration rounds to minutes, which would call most
+            // drops "0 min".
+            let seconds = max(1, Int(Date().timeIntervalSince(since)))
+            let outage = seconds < 60 ? "\(seconds) s" : UPSTelemetry.duration(seconds: seconds)
+            log.notice("\(device.displayName, privacy: .public): reconnected after \(outage, privacy: .public)")
+            if lastCondition[device.id]?.isConnectionProblem != true {
+                noteBriefDrop(for: device)
+            }
+        } else if !wasOnline {
+            log.notice("\(device.displayName, privacy: .public): connected to \(device.host, privacy: .public)")
+        }
         states[device.id] = .online(reading)
         lastUpdated[device.id] = reading.observedAt
         lastReadings[device.id] = reading
@@ -220,6 +244,21 @@ final class UPSMonitor: ObservableObject {
     }
 
     // MARK: - Events
+
+    private func noteBriefDrop(for device: UPSDevice) {
+        let now = Date()
+        var drops = (briefDrops[device.id] ?? []).filter { now.timeIntervalSince($0) < Self.unstableWindow }
+        drops.append(now)
+        briefDrops[device.id] = drops
+        let recentlyRecorded = unstableRecordedAt[device.id].map { now.timeIntervalSince($0) < Self.unstableWindow } ?? false
+        guard drops.count >= Self.unstableDropCount, !recentlyRecorded else { return }
+        unstableRecordedAt[device.id] = now
+        briefDrops[device.id] = nil
+        let minutes = Int((now.timeIntervalSince(drops[0]) / 60).rounded(.up))
+        let detail = "Dropped \(drops.count) times in \(max(1, minutes)) min, recovering each time"
+        log.error("\(device.displayName, privacy: .public): connection unstable. \(detail, privacy: .public)")
+        history.record(.connectionUnstable, for: device.id, detail: detail)
+    }
 
     /// The single place a change of condition is noticed. Both the event log
     /// and notifications hang off it, so they can never disagree.

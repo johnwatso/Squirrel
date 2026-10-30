@@ -158,6 +158,22 @@ private struct SquirrelCommands: Commands {
     }
 }
 
+/// Answers a deferred quit once, whichever of "history written" and "waited
+/// long enough" comes first.
+@MainActor
+private final class QuitReply {
+    private let application: NSApplication
+    private var sent = false
+
+    init(_ application: NSApplication) { self.application = application }
+
+    func send() {
+        guard !sent else { return }
+        sent = true
+        application.reply(toApplicationShouldTerminate: true)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var appModel: AppModel?
     private var menuBarMenu: MenuBarMenu?
@@ -193,7 +209,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    /// Quitting waits, briefly, for the history to be written: the last
+    /// minute of readings and the event saying monitoring stopped. A history
+    /// that will not finish never holds up the quit for long.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let appModel, NSClassFromString("XCTestCase") == nil else { return .terminateNow }
+        MainActor.assumeIsolated {
+            let quit = QuitReply(sender)
+            Task { @MainActor in
+                await appModel.prepareToQuit()
+                quit.send()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                quit.send()
+            }
+        }
+        return .terminateLater
+    }
+
+        func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         appModel?.triggerOpenManageWindow()
         return true
     }

@@ -80,6 +80,9 @@ final class AppModel: ObservableObject {
         updater.start()
         loginItem.refresh()
         Task { await notifications.refreshAuthorizationStatus() }
+        if !monitor.isPaused {
+            for device in settings.devices { history.record(.monitoringStarted, for: device.id) }
+        }
         monitor.start()
         refreshPowerProfileAdvice()
         powerSchedule.refresh()
@@ -101,6 +104,13 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Saves the minute in progress and says why the readings stop. Waited
+    /// on before quitting; a paused Squirrel already said so.
+    func prepareToQuit() async {
+        let kind: PowerEventKind? = monitor.isPaused ? nil : .monitoringStopped
+        await history.finishWriting(recording: kind, for: settings.devices.map(\.id))
+    }
+
     func refreshPowerProfileAdvice() {
         powerProfileAdvice = advisor.currentAdvice()
     }
@@ -120,8 +130,12 @@ final class AppModel: ObservableObject {
                              (NSWorkspace.willPowerOffNotification, .systemShutdown)] {
             NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    guard let self, let device = self.settings.systemDevice else { return }
-                    self.history.record(kind, for: device.id, detail: "Reported by macOS. The cause and completion are not verified.")
+                    // Every UPS's history has the gap, not only the one macOS
+                    // depends on.
+                    guard let self else { return }
+                    for device in self.settings.devices {
+                        self.history.record(kind, for: device.id, detail: "Reported by macOS. The cause and completion are not verified.")
+                    }
                 }
             }
         }

@@ -15,6 +15,9 @@ struct PowerSample: Identifiable, Equatable, Sendable {
     var onBattery: Bool
     /// Degrees Celsius, from the UPS or else its battery. Few UPSes report it.
     var temperature: Double? = nil
+    /// This Mac's chip, in degrees Celsius, recorded alongside the UPS so the
+    /// two can be compared. Nil on a Mac that does not expose it.
+    var macTemperature: Double? = nil
 
     var id: Date { date }
 }
@@ -27,6 +30,15 @@ enum PowerEventKind: String, CaseIterable, Sendable {
     case lowBattery
     case communicationLost
     case communicationRestored
+    /// Dropped and came back several times, each time too briefly to count
+    /// as lost. Without this a flapping connection left no trace at all.
+    case connectionUnstable
+    /// When Squirrel started and stopped watching, so every gap in the
+    /// readings has a reason beside it.
+    case monitoringStarted
+    case monitoringPaused
+    case monitoringResumed
+    case monitoringStopped
     case scheduleChanged
     case systemWake
     case systemSleep
@@ -39,6 +51,11 @@ enum PowerEventKind: String, CaseIterable, Sendable {
         case .lowBattery: return "Battery low"
         case .communicationLost: return "UPS connection lost"
         case .communicationRestored: return "UPS connection restored"
+        case .connectionUnstable: return "UPS connection unstable"
+        case .monitoringStarted: return "Squirrel started monitoring"
+        case .monitoringPaused: return "Monitoring paused"
+        case .monitoringResumed: return "Monitoring resumed"
+        case .monitoringStopped: return "Squirrel quit"
         case .scheduleChanged: return "Power schedule updated"
         case .systemWake: return "Mac woke"
         case .systemSleep: return "Mac preparing to sleep"
@@ -61,6 +78,10 @@ enum PowerEventKind: String, CaseIterable, Sendable {
         case .lowBattery: return "battery.25"
         case .communicationLost: return "wifi.exclamationmark"
         case .communicationRestored: return "wifi"
+        case .connectionUnstable: return "antenna.radiowaves.left.and.right.slash"
+        case .monitoringStarted, .monitoringResumed: return "play.circle"
+        case .monitoringPaused: return "pause.circle"
+        case .monitoringStopped: return "stop.circle"
         case .scheduleChanged: return "calendar.badge.clock"
         case .systemWake: return "sun.max.fill"
         case .systemSleep: return "moon.fill"
@@ -128,10 +149,15 @@ final class PowerHistory: ObservableObject {
     private var accumulators: [UUID: Accumulator] = [:]
     private var lastPrune = Date.distantPast
     private let log = Logger(subsystem: "io.github.johnwatso.Squirrel", category: "History")
+    private let readMacTemperature: () -> Double?
+    private var macTemperature: (value: Double?, readAt: Date)?
 
-    init(inMemory: Bool = false) {
+    /// `macTemperature` reads the Mac's chip; tests pass their own. An
+    /// in-memory history records none unless given one.
+    init(inMemory: Bool = false, macTemperature: (() -> Double?)? = nil) {
         let path = inMemory ? ":memory:" : Self.databaseURL()?.path
         store = path.flatMap { PowerHistoryStore(path: $0) }
+        readMacTemperature = macTemperature ?? (inMemory ? { nil } : { MacTemperatureSensors.shared.chipTemperature() })
         if store == nil {
             log.error("Power history is unavailable: the database could not be opened")
         }
@@ -147,7 +173,33 @@ final class PowerHistory: ObservableObject {
             flush(pending, for: deviceID)
             accumulators[deviceID] = nil
         }
-        accumulators[deviceID, default: Accumulator(minute: minute)].add(reading)
+        accumulators[deviceID, default: Accumulator(minute: minute)].add(reading, macTemperature: currentMacTemperature())
+    }
+
+    /// Read at most every 10 seconds, however many UPSes are polled.
+    private func currentMacTemperature() -> Double? {
+        if let cached = macTemperature, Date().timeIntervalSince(cached.readAt) < 10 { return cached.value }
+        let value = readMacTemperature()
+        macTemperature = (value, Date())
+        return value
+    }
+
+    /// Writes the minutes still being collected, and waits for every write to
+    /// land. Called before Squirrel pauses or quits, which would otherwise
+    /// lose up to a minute of readings and the event saying why they stop.
+    func finishWriting(recording kind: PowerEventKind? = nil, detail: String? = nil, for deviceIDs: [UUID] = []) async {
+        guard let store else { return }
+        let pending = accumulators
+        accumulators.removeAll()
+        for (deviceID, accumulator) in pending {
+            await store.insertSample(device: deviceID, sample: accumulator.sample)
+        }
+        if let kind {
+            for deviceID in deviceIDs {
+                await store.insertEvent(device: deviceID, date: Date(), kind: kind, detail: detail)
+            }
+        }
+        revision &+= 1
     }
 
     func record(_ kind: PowerEventKind, for deviceID: UUID, detail: String? = nil, at date: Date = Date()) {
@@ -214,18 +266,20 @@ private struct Accumulator {
     private var charge = Mean()
     private var runtime = Mean()
     private var temperature = Mean()
+    private var macTemperature = Mean()
     private var onBattery = false
 
     init(minute: Int) {
         self.minute = minute
     }
 
-    mutating func add(_ reading: UPSReading) {
+    mutating func add(_ reading: UPSReading, macTemperature mac: Double?) {
         power.add(reading.number("ups.realpower"))
         load.add(reading.load.map(Double.init))
         charge.add(reading.batteryCharge.map(Double.init))
         runtime.add(reading.batteryRuntime.map(Double.init))
         temperature.add(reading.number("ups.temperature") ?? reading.number("battery.temperature"))
+        macTemperature.add(mac)
         onBattery = onBattery || reading.status.isRunningOnBattery
     }
 
@@ -237,7 +291,8 @@ private struct Accumulator {
             charge: charge.value,
             runtime: runtime.value,
             onBattery: onBattery,
-            temperature: temperature.value
+            temperature: temperature.value,
+            macTemperature: macTemperature.value
         )
     }
 
@@ -313,6 +368,10 @@ actor PowerHistoryStore {
             let step = "ALTER TABLE samples ADD COLUMN temperature REAL; PRAGMA user_version = 1;"
             guard sqlite3_exec(handle, step, nil, nil, nil) == SQLITE_OK else { return false }
         }
+        if version < 2 {
+            let step = "ALTER TABLE samples ADD COLUMN mac_temperature REAL; PRAGMA user_version = 2;"
+            guard sqlite3_exec(handle, step, nil, nil, nil) == SQLITE_OK else { return false }
+        }
         return true
     }
 
@@ -321,7 +380,7 @@ actor PowerHistoryStore {
     }
 
     func insertSample(device: UUID, sample: PowerSample) {
-        run("INSERT INTO samples (device, t, power, load, charge, runtime, on_battery, temperature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)") { statement in
+        run("INSERT INTO samples (device, t, power, load, charge, runtime, on_battery, temperature, mac_temperature) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)") { statement in
             bind(device.uuidString, at: 1, in: statement)
             sqlite3_bind_double(statement, 2, sample.date.timeIntervalSince1970)
             bind(sample.power, at: 3, in: statement)
@@ -330,6 +389,7 @@ actor PowerHistoryStore {
             bind(sample.runtime, at: 6, in: statement)
             sqlite3_bind_int(statement, 7, sample.onBattery ? 1 : 0)
             bind(sample.temperature, at: 8, in: statement)
+            bind(sample.macTemperature, at: 9, in: statement)
         }
     }
 
@@ -356,7 +416,7 @@ actor PowerHistoryStore {
     /// reporting a value mid-bucket does not drag the average towards zero.
     func samples(device: UUID, since: Date, bucket: TimeInterval) -> [PowerSample] {
         let sql = """
-            SELECT CAST(t / ?1 AS INTEGER) * ?1 AS b, AVG(power), AVG(load), AVG(charge), AVG(runtime), MAX(on_battery), AVG(temperature)
+            SELECT CAST(t / ?1 AS INTEGER) * ?1 AS b, AVG(power), AVG(load), AVG(charge), AVG(runtime), MAX(on_battery), AVG(temperature), AVG(mac_temperature)
             FROM samples WHERE device = ?2 AND t >= ?3
             GROUP BY b ORDER BY b
             """
@@ -373,7 +433,8 @@ actor PowerHistoryStore {
                 charge: column(statement, 3),
                 runtime: column(statement, 4),
                 onBattery: sqlite3_column_int(statement, 5) != 0,
-                temperature: column(statement, 6)
+                temperature: column(statement, 6),
+                macTemperature: column(statement, 7)
             ))
         }
         return result

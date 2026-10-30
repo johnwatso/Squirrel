@@ -36,7 +36,7 @@
 - No `sudo`, no sudoers edits and no helper: macOS's built-in UPS thresholds do the work
 - A setup assistant that finds NUT servers on your network and lists their UPSes
 - Battery, runtime, load and power at a glance, in the menu bar and a native window
-- Power history and an event log for outages, low battery and lost connections
+- UPS history, with the UPS's temperature charted against the Mac's, and an event log for outages, low battery, lost or unstable connections, and when monitoring started or stopped
 - Optional notifications, and keeping the Mac awake during an outage so it reaches its shutdown rule
 - Power schedules for start-up, sleep, restart and shutdown, using macOS's own recurring slots
 - Several UPSes at once, with one shared with macOS

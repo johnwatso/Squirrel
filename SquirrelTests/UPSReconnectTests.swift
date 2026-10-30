@@ -102,6 +102,37 @@ final class UPSReconnectTests: XCTestCase {
         XCTAssertTrue(UPSMonitor.readingHasExpired(now.addingTimeInterval(-31), now: now, maxAge: 30))
     }
 
+    /// Each drop recovers inside the grace period, so none is a lost
+    /// connection; several in a row used to leave no trace at all.
+    @MainActor
+    func testAConnectionThatKeepsDroppingIsRecordedAsUnstable() async throws {
+        let server = try DroppingNUTServer(firstConnection: .everyConnectionDrops)
+        let port = try await server.start()
+        defer { server.stop() }
+        let suite = "SquirrelTests.Unstable.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = SettingsStore(defaults: defaults, credentialStore: NoCredentials())
+        settings.preferences.publishPowerSource = false
+        settings.preferences.showNotifications = false
+        settings.preferences.preventSleepDuringOutage = false
+        let device = UPSDevice(displayName: "Flapping fixture", host: "127.0.0.1", port: port, upsName: "rack", publishesToSystem: false, pollInterval: 0.05)
+        settings.upsert(device)
+        let history = PowerHistory(inMemory: true)
+        let monitor = UPSMonitor(settings: settings, publisher: PowerSourcePublisher(), sleepAssertion: SleepAssertionService(), notifications: NotificationService(settings: settings), history: history)
+        monitor.start()
+        var events: [PowerEvent] = []
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline, !events.contains(where: { $0.kind == .connectionUnstable }) {
+            try await Task.sleep(for: .milliseconds(50))
+            events = await history.events(for: device.id)
+        }
+        await monitor.pause()
+        let kinds = events.map(\.kind)
+        XCTAssertEqual(kinds.filter { $0 == .connectionUnstable }.count, 1, "Recorded once per burst, not on every drop")
+        XCTAssertFalse(kinds.contains(.communicationLost), "No single drop lasted long enough to count as lost")
+    }
+
     @MainActor
     func testMonitorOpensFreshSocketAfterServerDropsConnection() async throws {
         let server = try DroppingNUTServer(firstConnection: .dropsAfterOneReading)
@@ -136,9 +167,9 @@ private struct NoCredentials: CredentialStoring {
 /// All mutable fixture state is confined to queue. The first socket either
 /// supplies one reading and then closes, never answers at all, or answers
 /// readings late and everything else at once; later sockets supply a
-/// distinct recovered value.
+/// distinct recovered value. Or every socket closes after one reading.
 private final class DroppingNUTServer: @unchecked Sendable {
-    enum FirstConnection { case dropsAfterOneReading, silent, slowReadings }
+    enum FirstConnection { case dropsAfterOneReading, silent, slowReadings, everyConnectionDrops }
 
     let listener: NWListener
     let firstConnection: FirstConnection
@@ -168,7 +199,7 @@ private final class DroppingNUTServer: @unchecked Sendable {
             listener.newConnectionHandler = { [self] connection in
                 let first = peers.isEmpty
                 let peer = Peer(connection: connection, queue: queue,
-                                drops: first && firstConnection == .dropsAfterOneReading,
+                                drops: (first && firstConnection == .dropsAfterOneReading) || firstConnection == .everyConnectionDrops,
                                 silent: first && firstConnection == .silent,
                                 slowReadings: first && firstConnection == .slowReadings)
                 peers.append(peer)

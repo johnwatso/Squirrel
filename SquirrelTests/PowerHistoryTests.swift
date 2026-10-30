@@ -1,3 +1,4 @@
+import SQLite3
 import XCTest
 import SquirrelCore
 @testable import Squirrel
@@ -62,6 +63,57 @@ final class PowerHistoryTests: XCTestCase {
 
         let events = await history.events(for: device)
         XCTAssertTrue(events.isEmpty)
+    }
+
+    /// The Mac's chip is recorded beside the UPS, averaged over the minute
+    /// like everything else, and missing rather than zero when unreadable.
+    func testRecordsTheMacsTemperatureBesideTheUPS() async throws {
+        let history = PowerHistory(inMemory: true, macTemperature: { 40 })
+        let minute = (Date().timeIntervalSince1970 / 60).rounded(.down) * 60 - 600
+        history.record(reading(at: Date(timeIntervalSince1970: minute + 5)), for: device)
+        history.record(reading(at: Date(timeIntervalSince1970: minute + 65)), for: device)
+        try await waitForWrites(history)
+
+        let samples = await history.samples(for: device, in: .day)
+        XCTAssertEqual(samples.first?.macTemperature, 40)
+        XCTAssertNil(samples.first?.temperature, "The UPS reported no temperature of its own")
+    }
+
+    /// Pausing or quitting must not lose the minute in progress, and the
+    /// event saying why the readings stop lands with it.
+    func testFinishingWritesTheMinuteInProgressAndTheReason() async throws {
+        let history = PowerHistory(inMemory: true)
+        let now = Date()
+        history.record(reading(at: now, power: "75"), for: device)
+        await history.finishWriting(recording: .monitoringStopped, for: [device])
+
+        let samples = await history.samples(for: device, in: .day)
+        XCTAssertEqual(samples.last?.power, 75)
+        let events = await history.events(for: device)
+        XCTAssertEqual(events.map(\.kind), [.monitoringStopped])
+    }
+
+    /// A history file from before Mac temperature gains the column and keeps
+    /// what it had.
+    func testOlderHistoryFilesGainTheMacTemperatureColumn() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("SquirrelTests.History.\(UUID()).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &handle), SQLITE_OK)
+        let old = """
+            CREATE TABLE samples (device TEXT NOT NULL, t REAL NOT NULL, power REAL, load REAL, charge REAL,
+                runtime REAL, on_battery INTEGER NOT NULL DEFAULT 0, temperature REAL);
+            INSERT INTO samples (device, t, power, on_battery, temperature) VALUES ('\(device.uuidString)', \(Date().timeIntervalSince1970 - 300), 50, 0, 24);
+            PRAGMA user_version = 1;
+            """
+        XCTAssertEqual(sqlite3_exec(handle, old, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(handle)
+
+        let store = try XCTUnwrap(PowerHistoryStore(path: url.path))
+        await store.insertSample(device: device, sample: PowerSample(date: Date(), onBattery: false, macTemperature: 33))
+        let samples = await store.samples(device: device, since: .distantPast, bucket: 60)
+        XCTAssertEqual(samples.map(\.temperature), [24, nil])
+        XCTAssertEqual(samples.map(\.macTemperature), [nil, 33])
     }
 
     /// Writes hop onto the store's actor; give them a moment to land.

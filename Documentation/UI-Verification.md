@@ -344,3 +344,16 @@ nothing, and the copy falls back to default preferences, which publish to macOS.
   Protection "Active" and a single set schedule. Captures:
   `Images/overview-light.png`, `Images/overview-dark.png` and
   `Visual-Verification/welcome-light.png`.
+
+## Mac temperature and history events — 31 October 2026
+
+- The Temperature chart now draws this Mac's chip (purple) on the UPS's axis
+  (accent colour), with a key underneath. Rendered offscreen from the test host
+  with made-up samples in light and dark, as a second copy of the app would have
+  read the real UPS's Keychain item. Both lines break at missing readings.
+- The chip reading is the average of the M1's die and cluster sensors (about
+  28–38 °C at idle on the Mac mini). The UniFi UPS 2U has reported exactly
+  25.0 °C in every sample since 29 October, so its line is flat.
+- New events (unstable connection, monitoring started, paused, resumed and
+  quit) are covered by tests only; the quit path was not exercised in the live
+  app.
