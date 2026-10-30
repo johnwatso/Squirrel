@@ -1,6 +1,6 @@
 import Network
 import XCTest
-import SquirrelCore
+@testable import SquirrelCore
 @testable import Squirrel
 
 final class UPSReconnectTests: XCTestCase {
@@ -65,6 +65,43 @@ final class UPSReconnectTests: XCTestCase {
         XCTAssertEqual(recovered.batteryCharge, 42)
     }
 
+    /// The discovery probe's timeout used to wait for the very receive it was
+    /// meant to abandon, so one silent host held the network sweep forever.
+    func testDiscoveryProbeGivesUpOnASilentServer() async throws {
+        let server = try DroppingNUTServer(firstConnection: .silent)
+        let port = try await server.start()
+        defer { server.stop() }
+        let started = Date()
+        let found = await NUTDiscovery.probe(host: "127.0.0.1", port: port, timeout: 1, includingLoopback: true)
+        XCTAssertNil(found, "A server that never answers is not a NUT server")
+        XCTAssertLessThan(Date().timeIntervalSince(started), 3, "The probe should give up at its timeout")
+    }
+
+    /// An instant command sent while a poll was waiting on the server used to
+    /// share the socket with it, so each could read the other's reply.
+    func testACommandDuringAReadingWaitsItsTurn() async throws {
+        let server = try DroppingNUTServer(firstConnection: .slowReadings)
+        let port = try await server.start()
+        defer { server.stop() }
+        let client = NUTClient(configuration: .init(host: "127.0.0.1", port: port, timeout: 3))
+        try await client.connect()
+
+        async let reading = client.reading(ups: "rack")
+        try await Task.sleep(for: .milliseconds(50))
+        try await client.instantCommand("test.battery.start.quick", ups: "rack")
+        let charge = try await reading.batteryCharge
+        XCTAssertEqual(charge, 100)
+    }
+
+    /// The watchdog's rule: a reading expires once it is older than its limit,
+    /// and a UPS never read has nothing to expire.
+    func testReadingsExpireOnlyOnceTooOld() {
+        let now = Date()
+        XCTAssertFalse(UPSMonitor.readingHasExpired(nil, now: now, maxAge: 30))
+        XCTAssertFalse(UPSMonitor.readingHasExpired(now.addingTimeInterval(-30), now: now, maxAge: 30))
+        XCTAssertTrue(UPSMonitor.readingHasExpired(now.addingTimeInterval(-31), now: now, maxAge: 30))
+    }
+
     @MainActor
     func testMonitorOpensFreshSocketAfterServerDropsConnection() async throws {
         let server = try DroppingNUTServer(firstConnection: .dropsAfterOneReading)
@@ -97,10 +134,11 @@ private struct NoCredentials: CredentialStoring {
 }
 
 /// All mutable fixture state is confined to queue. The first socket either
-/// supplies one reading and then closes, or never answers at all; later
-/// sockets supply a distinct recovered value.
+/// supplies one reading and then closes, never answers at all, or answers
+/// readings late and everything else at once; later sockets supply a
+/// distinct recovered value.
 private final class DroppingNUTServer: @unchecked Sendable {
-    enum FirstConnection { case dropsAfterOneReading, silent }
+    enum FirstConnection { case dropsAfterOneReading, silent, slowReadings }
 
     let listener: NWListener
     let firstConnection: FirstConnection
@@ -131,7 +169,8 @@ private final class DroppingNUTServer: @unchecked Sendable {
                 let first = peers.isEmpty
                 let peer = Peer(connection: connection, queue: queue,
                                 drops: first && firstConnection == .dropsAfterOneReading,
-                                silent: first && firstConnection == .silent)
+                                silent: first && firstConnection == .silent,
+                                slowReadings: first && firstConnection == .slowReadings)
                 peers.append(peer)
                 peer.start()
             }
@@ -154,13 +193,15 @@ private final class DroppingNUTServer: @unchecked Sendable {
         let queue: DispatchQueue
         let drops: Bool
         let silent: Bool
+        let slowReadings: Bool
         var buffer = ""
         var readings = 0
-        init(connection: NWConnection, queue: DispatchQueue, drops: Bool, silent: Bool) {
+        init(connection: NWConnection, queue: DispatchQueue, drops: Bool, silent: Bool, slowReadings: Bool) {
             self.connection = connection
             self.queue = queue
             self.drops = drops
             self.silent = silent
+            self.slowReadings = slowReadings
         }
         func start() { connection.start(queue: queue); receive() }
         func receive() {
@@ -179,13 +220,18 @@ private final class DroppingNUTServer: @unchecked Sendable {
                     let reply: String
                     if command == "LIST VAR rack" {
                         readings += 1
-                        reply = "BEGIN LIST VAR rack\nVAR rack ups.status \"OL\"\nVAR rack battery.charge \"\(drops ? 100 : 42)\"\nEND LIST VAR rack\n"
+                        reply = "BEGIN LIST VAR rack\nVAR rack ups.status \"OL\"\nVAR rack battery.charge \"\(drops || slowReadings ? 100 : 42)\"\nEND LIST VAR rack\n"
                     } else if command == "LIST CMD rack" {
                         reply = "BEGIN LIST CMD rack\nEND LIST CMD rack\n"
                     } else {
                         reply = "OK\n"
                     }
-                    connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in })
+                    // Late enough that a command sent mid-reading, without
+                    // waiting, would get its reply before the reading's.
+                    let delay: TimeInterval = slowReadings && command == "LIST VAR rack" ? 0.3 : 0
+                    queue.asyncAfter(deadline: .now() + delay) { [connection] in
+                        connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in })
+                    }
                 }
                 receive()
             }

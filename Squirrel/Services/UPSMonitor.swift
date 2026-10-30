@@ -33,6 +33,7 @@ final class UPSMonitor: ObservableObject {
     private var restartGeneration = 0
     private var publicationOwner: UUID?
     private var pollTasks: [UUID: Task<Void, Never>] = [:]
+    private var watchdog: Task<Void, Never>?
     private var clients: [UUID: NUTClient] = [:]
     /// When the UPS was first seen on battery, for debouncing.
     private var onBatterySince: [UUID: Date] = [:]
@@ -75,6 +76,7 @@ final class UPSMonitor: ObservableObject {
         for device in settings.devices where pollTasks[device.id] == nil {
             startPolling(device)
         }
+        startWatchdog()
     }
 
     func restart() {
@@ -161,6 +163,8 @@ final class UPSMonitor: ObservableObject {
         failingSince.removeAll()
         pollTasks.values.forEach { $0.cancel() }
         pollTasks.removeAll()
+        watchdog?.cancel()
+        watchdog = nil
         for client in clients.values { Task { await client.abort() } }
         clients.removeAll()
         onBatterySince.removeAll()
@@ -301,6 +305,38 @@ final class UPSMonitor: ObservableObject {
         // Mac depends on, say "not present" rather than something reassuring.
         guard !Task.isCancelled, settings.systemDevice?.id == device.id, settings.preferences.publishPowerSource else { return }
         _ = try? await publisher.publish(.unavailable(name: device.displayName))
+    }
+
+    /// Only a new reading used to change what macOS had been told, so a poll
+    /// loop that stalled left its last reading standing indefinitely: "on
+    /// mains, 100%" through an outage the Mac never heard about. This expires
+    /// it on a clock of its own, however polling is doing.
+    private func startWatchdog() {
+        guard watchdog == nil else { return }
+        watchdog = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                await self?.expireStaleReading()
+            }
+        }
+    }
+
+    private func expireStaleReading() async {
+        guard !Task.isCancelled, settings.preferences.publishPowerSource,
+              let device = settings.systemDevice,
+              Self.readingHasExpired(lastUpdated[device.id], maxAge: max(settings.preferences.readingMaxAge, device.pollInterval * 3)),
+              await publisher.isPublishing
+        else { return }
+        if await publisher.publishedSnapshot?.isPresent == true {
+            log.error("\(device.displayName, privacy: .public): no reading for too long; telling macOS the UPS is unavailable")
+        }
+        _ = try? await publisher.publish(.unavailable(name: device.displayName))
+    }
+
+    /// A UPS that has never been read has nothing to expire.
+    nonisolated static func readingHasExpired(_ updated: Date?, now: Date = Date(), maxAge: TimeInterval) -> Bool {
+        guard let updated else { return false }
+        return now.timeIntervalSince(updated) > maxAge
     }
 
     /// Applies the debounce and hands the result to macOS.

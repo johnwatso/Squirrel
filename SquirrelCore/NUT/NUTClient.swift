@@ -36,6 +36,11 @@ public actor NUTClient {
     private let queue = DispatchQueue(label: "com.squirrel.nut-client")
     private var connection: NWConnection?
     private var buffer = Data()
+    /// One request on the socket at a time. An actor runs other calls while
+    /// one waits on the server, so without this an instant command sent
+    /// mid-poll would read the poll's reply, and the poll the command's.
+    private var requestInFlight = false
+    private var queuedRequests: [CheckedContinuation<Void, Never>] = []
 
     public init(configuration: Configuration) {
         self.configuration = configuration
@@ -46,6 +51,10 @@ public actor NUTClient {
     // MARK: - Connection
 
     public func connect() async throws {
+        try await exclusively { try await open() }
+    }
+
+    private func open() async throws {
         if connection != nil { return }
 
         let endpoint = NWEndpoint.Host(configuration.host)
@@ -105,6 +114,10 @@ public actor NUTClient {
     }
 
     public func disconnect() async {
+        await exclusively { await close() }
+    }
+
+    private func close() async {
         guard let connection else { return }
         if let line = try? await send(NUTProtocol.command("LOGOUT")), !line.isEmpty {
             // upsd answers "OK Goodbye"; nothing to do with it.
@@ -127,7 +140,9 @@ public actor NUTClient {
     /// `LIST UPS` — the names upsd actually serves. Onboarding enumerates with
     /// this instead of asking the user to guess the UniFi controller's NUT ID.
     public func listUPS() async throws -> [NUTDevice] {
-        let lines = try await sendExpectingList(NUTProtocol.command("LIST", ["UPS"]), query: "UPS")
+        let lines = try await exclusively {
+            try await sendExpectingList(NUTProtocol.command("LIST", ["UPS"]), query: "UPS")
+        }
         return lines.compactMap { line in
             let tokens = NUTProtocol.tokenize(line)
             guard tokens.count >= 2, tokens[0] == "UPS" else { return nil }
@@ -136,6 +151,10 @@ public actor NUTClient {
     }
 
     public func listVariables(ups: String) async throws -> [String: String] {
+        try await exclusively { try await variables(ups: ups) }
+    }
+
+    private func variables(ups: String) async throws -> [String: String] {
         let lines = try await sendExpectingList(
             NUTProtocol.command("LIST", ["VAR", ups]), query: "VAR \(ups)"
         )
@@ -149,9 +168,9 @@ public actor NUTClient {
     }
 
     public func listCommands(ups: String) async throws -> [String] {
-        let lines = try await sendExpectingList(
-            NUTProtocol.command("LIST", ["CMD", ups]), query: "CMD \(ups)"
-        )
+        let lines = try await exclusively {
+            try await sendExpectingList(NUTProtocol.command("LIST", ["CMD", ups]), query: "CMD \(ups)")
+        }
         return lines.compactMap { line in
             let tokens = NUTProtocol.tokenize(line)
             guard tokens.count >= 3, tokens[0] == "CMD" else { return nil }
@@ -160,7 +179,7 @@ public actor NUTClient {
     }
 
     public func variable(_ name: String, ups: String) async throws -> String {
-        let line = try await send(NUTProtocol.command("GET", ["VAR", ups, name]))
+        let line = try await exclusively { try await send(NUTProtocol.command("GET", ["VAR", ups, name])) }
         if let error = NUTError(errorLine: line) { throw error }
         let tokens = NUTProtocol.tokenize(line)
         guard tokens.count >= 4, tokens[0] == "VAR" else {
@@ -171,28 +190,43 @@ public actor NUTClient {
 
     /// A full reading in one round trip.
     public func reading(ups: String) async throws -> UPSReading {
-        let variables = try await listVariables(ups: ups)
-        guard !variables.isEmpty else { throw NUTError.dataStale }
-        return UPSReading(upsName: ups, variables: variables)
+        let values = try await exclusively { try await variables(ups: ups) }
+        guard !values.isEmpty else { throw NUTError.dataStale }
+        return UPSReading(upsName: ups, variables: values)
     }
 
     public func protocolVersion() async throws -> String {
-        try await send(NUTProtocol.command("NETVER"))
+        try await exclusively { try await send(NUTProtocol.command("NETVER")) }
     }
 
     // MARK: - Actions
 
     public func instantCommand(_ name: String, ups: String) async throws {
-        _ = try await sendExpectingOK(NUTProtocol.command("INSTCMD", [ups, name]))
+        _ = try await exclusively { try await sendExpectingOK(NUTProtocol.command("INSTCMD", [ups, name])) }
     }
 
     /// Registers this Mac as drawing power from the UPS. Needs an `upsmon`
     /// role in `upsd.users`.
     public func login(ups: String) async throws {
-        _ = try await sendExpectingOK(NUTProtocol.command("LOGIN", [ups]))
+        _ = try await exclusively { try await sendExpectingOK(NUTProtocol.command("LOGIN", [ups])) }
     }
 
     // MARK: - Transport
+
+    /// Waits for any request already on the socket, then runs this one. Each
+    /// step under it has its own timeout, so a stuck server holds the queue
+    /// for at most that long.
+    private func exclusively<T>(_ request: () async throws -> T) async rethrows -> T {
+        if requestInFlight {
+            await withCheckedContinuation { queuedRequests.append($0) }
+        } else {
+            requestInFlight = true
+        }
+        defer {
+            if queuedRequests.isEmpty { requestInFlight = false } else { queuedRequests.removeFirst().resume() }
+        }
+        return try await request()
+    }
 
     private func sendExpectingOK(_ command: String) async throws -> String {
         let line = try await send(command)

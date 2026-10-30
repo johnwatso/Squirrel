@@ -228,14 +228,16 @@ public enum NUTDiscovery {
     ///
     /// A host is only reported once it has answered in NUT's own protocol, so
     /// an unrelated service listening on the port is never shown as a UPS.
-    static func probe(host: String, port: UInt16, timeout: TimeInterval) async -> DiscoveredNUTServer? {
+    ///
+    /// `includingLoopback` is for tests, which can only run a server locally.
+    static func probe(host: String, port: UInt16, timeout: TimeInterval, includingLoopback: Bool = false) async -> DiscoveredNUTServer? {
         guard let endpointPort = NWEndpoint.Port(rawValue: port) else { return nil }
 
         let options = NWProtocolTCP.Options()
         options.connectionTimeout = Int(timeout.rounded(.up))
         options.noDelay = true
         let parameters = NWParameters(tls: nil, tcp: options)
-        parameters.prohibitedInterfaceTypes = [.loopback]
+        if !includingLoopback { parameters.prohibitedInterfaceTypes = [.loopback] }
 
         let session = ProbeSession(
             connection: NWConnection(host: NWEndpoint.Host(host), port: endpointPort, using: parameters)
@@ -243,7 +245,7 @@ public enum NUTDiscovery {
         defer { session.cancel() }
 
         guard await session.open(timeout: timeout),
-              await session.send(NUTProtocol.command("LIST", ["UPS"]) + "\n")
+              await session.send(NUTProtocol.command("LIST", ["UPS"]) + "\n", timeout: timeout)
         else { return nil }
 
         let deadline = Date().addingTimeInterval(timeout)
@@ -306,7 +308,7 @@ public enum NUTDiscovery {
     /// One `GET VAR` on the probe's connection. Nil for anything but a value,
     /// including the error a server gives for a variable it doesn't have.
     private static func variable(_ variable: String, ups: String, session: ProbeSession, before deadline: Date) async -> String? {
-        guard await session.send(NUTProtocol.command("GET", ["VAR", ups, variable]) + "\n"),
+        guard await session.send(NUTProtocol.command("GET", ["VAR", ups, variable]) + "\n", timeout: deadline.timeIntervalSinceNow),
               let line = await session.readLine(before: deadline)
         else { return nil }
         let tokens = NUTProtocol.tokenize(line)
@@ -394,13 +396,15 @@ private final class ProbeSession: @unchecked Sendable {
         } ?? false
     }
 
-    func send(_ command: String) async -> Bool {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-            let once = DiscoveryOneShot()
-            connection.send(content: Data(command.utf8), completion: .contentProcessed { error in
-                once.fire { continuation.resume(returning: error == nil) }
-            })
-        }
+    func send(_ command: String, timeout: TimeInterval) async -> Bool {
+        await race(timeout: timeout) {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                let once = DiscoveryOneShot()
+                self.connection.send(content: Data(command.utf8), completion: .contentProcessed { error in
+                    once.fire { continuation.resume(returning: error == nil) }
+                })
+            }
+        } ?? false
     }
 
     func readLine(before deadline: Date) async -> String? {
@@ -445,6 +449,12 @@ private final class ProbeSession: @unchecked Sendable {
     }
 
     /// Runs `work`, giving up and returning nil once `timeout` has passed.
+    ///
+    /// A task group only returns once every child has, and a callback waiting
+    /// on the connection does not stop for cancellation. So on timeout the
+    /// connection itself is cancelled, which makes its pending send or receive
+    /// complete; without that a silent server held the probe, and the sweep,
+    /// forever. A timed-out session is finished either way.
     private func race<Value: Sendable>(
         timeout: TimeInterval,
         work: @escaping @Sendable () async -> Value
@@ -452,7 +462,12 @@ private final class ProbeSession: @unchecked Sendable {
         await withTaskGroup(of: Value?.self) { group in
             group.addTask { await work() }
             group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(max(0, timeout) * 1_000_000_000))
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(max(0, timeout) * 1_000_000_000))
+                } catch {
+                    return nil
+                }
+                self.connection.cancel()
                 return nil
             }
             let result = await group.next() ?? nil
