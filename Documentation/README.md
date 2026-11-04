@@ -1,5 +1,6 @@
 # Squirrel documentation
 
+- [Development](Development.md): the Xcode project and test command.
 - [Design notes](../DESIGN.md): why publishing a power source is the product, and the evidence that it works.
 - [Power scheduling](Power-Scheduling.md): how Squirrel reads and writes macOS's recurring power schedules, and what still needs testing on hardware.
 - [Mac power reading](Mac-Power-Reading.md): parked. Why the Mac's own watts aren't shown beside the UPS's, and what would make it possible.

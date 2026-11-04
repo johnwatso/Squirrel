@@ -45,9 +45,7 @@
 
 ## Installation
 
-Download the latest release from [GitHub Releases](https://github.com/johnwatso/Squirrel/releases) and move Squirrel to your Applications folder. Open it and follow the setup assistant.
-
-You'll need macOS 13 or later, and a NUT server for your UPS that this Mac is allowed to reach. Allow Local Network access when macOS asks.
+Download [Squirrel](https://github.com/johnwatso/Squirrel/releases), move it to Applications and follow the setup assistant. You'll need macOS 13 or later and access to a NUT server; allow Local Network access when prompted.
 
 ## How it works
 
@@ -59,17 +57,6 @@ A few things to know:
 - The IOKit functions it uses ship in macOS but aren't in the public headers. If a future macOS stops accepting them, Squirrel falls back to monitoring and says so.
 - The NUT connection is plain TCP. Use it on a trusted network.
 - macOS recognising the UPS doesn't prove a shutdown works. Test one outage before relying on it.
-
-## Development
-
-Squirrel is an Xcode project built with Swift 6 and SwiftUI. The project is generated from [project.yml](project.yml) with XcodeGen, and Sparkle comes in through Swift Package Manager.
-
-```sh
-open Squirrel.xcodeproj
-xcodebuild test -project Squirrel.xcodeproj -scheme Squirrel -destination 'platform=macOS'
-```
-
-Start with the [documentation index](Documentation/README.md) and the [design notes](DESIGN.md).
 
 ## Releases
 
