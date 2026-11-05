@@ -320,9 +320,12 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
                 .withSymbolConfiguration(.init(pointSize: NSFont.menuFont(ofSize: 0).pointSize, weight: .regular))
             image?.isTemplate = true
             item.image = image
+            // ponytail: Swift 6.4 = Xcode 27 SDK; older SDKs lack this API.
+            #if compiler(>=6.4)
             if #available(macOS 27, *) {
                 item.preferredImageVisibility = .visible
             }
+            #endif
         }
 
         if let action = entry.action {
