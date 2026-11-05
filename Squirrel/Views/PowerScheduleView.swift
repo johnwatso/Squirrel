@@ -271,7 +271,7 @@ struct ScheduleEditorSheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         sectionTitle("Repeat")
-                        Picker("Repeat schedule", selection: Binding(get: { repeatPreset }, set: selectPreset)) {
+                        Picker("Repeat schedule", selection: Binding(get: { repeatPreset }, set: { selectPreset($0) })) {
                             ForEach(ScheduleRepeatPreset.allCases) { preset in
                                 Text(preset.rawValue).tag(preset)
                             }
