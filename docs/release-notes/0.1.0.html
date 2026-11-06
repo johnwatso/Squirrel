@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Work around Swift 6.2 compiler crash in the repeat picker binding - Release Notes</title>
+  <title>Squirrel 0.1.0 — Our first release! - Release Notes</title>
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -21,6 +21,9 @@
       background: rgba(255, 255, 255, 0.86);
       box-shadow: 0 20px 60px rgba(15, 23, 32, 0.10);
     }
+    h2 { margin: 24px 0 12px; font-size: 22px; line-height: 1.25; }
+    ul { padding-left: 24px; }
+    li { margin-bottom: 12px; }
     h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.15; }
     .meta { margin: 0 0 24px; color: #52606d; font-size: 14px; }
     p { margin: 0 0 16px; }
@@ -39,12 +42,24 @@
 </head>
 <body>
   <main>
-    <h1>Work around Swift 6.2 compiler crash in the repeat picker binding</h1>
-    <p class="meta">Version 0.1.0</p>
-    <p>Work around Swift 6.2 compiler crash in the repeat picker binding</p>
-<p>Passing selectPreset as a method reference crashed IRGen on x86_64<br>under Xcode 26.2; a closure avoids the faulty reabstraction thunk.</p>
-<p>Co-Authored-By: Claude Opus 5.5 &lt;noreply@anthropic.com&gt;</p>
-    <p><strong>Commit:</strong> <a href="https://github.com/johnwatso/Squirrel/commit/94010f5bec94ec8f3a83d7ad5019dbd21c7f9cd0">94010f5</a></p>
+    <h1>Our first release! 🐿️</h1>
+    <p class="meta">Squirrel 0.1.0 · 6 November 2026</p>
+    <p><strong>Squirrel’s first release is here! 🐿️</strong></p>
+    <p>Your Mac can finally see the UPS on your network. Squirrel connects to a Network UPS Tools (NUT) server and shares your UPS with macOS as a real power source, so the Mac’s own UPS shutdown settings can take over when the power goes out.</p>
+    <h2>Meet Squirrel</h2>
+    <ul>
+      <li><strong>A quick start.</strong> Find NUT servers on your network, choose your UPS, and get connected with the setup assistant.</li>
+      <li><strong>Your power, at a glance.</strong> See battery charge, estimated runtime, load, and power in a native Mac window and the menu bar.</li>
+      <li><strong>Built-in macOS power protection.</strong> Share one UPS with macOS and use System Settings → Energy → UPS Options to set shutdown thresholds. No sudo, sudoers edits, or helper required.</li>
+      <li><strong>A clearer picture of outages.</strong> Explore UPS history, compare UPS and Mac temperatures, and review events such as power failures, low battery, and connection changes.</li>
+      <li><strong>Make it your own.</strong> Monitor multiple UPSes, enable notifications, keep your Mac awake during an outage, and manage macOS power schedules.</li>
+      <li><strong>Ready for your workflows.</strong> Automate with Shortcuts actions and the bundled squirrelctl command.</li>
+    </ul>
+    <h2>Get started</h2>
+    <p>Download <a href="https://github.com/johnwatso/Squirrel/releases/download/v0.1.0/Squirrel-0.1.0.zip">Squirrel-0.1.0.zip</a>, unzip it, move Squirrel to Applications, and follow the setup assistant. You’ll need macOS 13 or later and access to a NUT server. Allow Local Network access when prompted.</p>
+    <p>Keep Squirrel running to share your UPS with macOS, and test an outage before relying on automatic shutdown. Use your NUT connection on a trusted network.</p>
+    <p>This is the beginning of Squirrel. Thanks for trying the first release—we’d love to hear how it works with your UPS and Mac!</p>
+    <p><a href="https://github.com/johnwatso/Squirrel/blob/v0.1.0/Documentation/README.md">Read the documentation</a> · <a href="https://github.com/johnwatso/Squirrel/issues">Report an issue or share feedback</a></p>
   </main>
 </body>
 </html>
