@@ -79,10 +79,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.johnwatso.Squirrel
         PRODUCT_NAME: Squirrel
-        # Set these to Squirrel's own HTTPS appcast and EdDSA public key before release.
-        # Empty in development: do not contact an invented feed or reuse another app's key.
-        SPARKLE_FEED_URL: ""
-        SPARKLE_PUBLIC_ED_KEY: ""
+        # ShipHook signs releases with its shared key; the app uses its public key.
+        SPARKLE_FEED_URL: https://johnwatso.github.io/Squirrel/appcast.xml
+        SPARKLE_PUBLIC_ED_KEY: "rxaJsfCpTKtpqRubSfkJwKnztT5S8RHsdAueuT+jKck="
         ASSETCATALOG_COMPILER_APPICON_NAME: Squirrel
         INFOPLIST_KEY_CFBundleDisplayName: Squirrel
         MARKETING_VERSION: "0.1.0"

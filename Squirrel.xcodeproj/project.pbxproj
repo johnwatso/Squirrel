@@ -921,8 +921,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.johnwatso.Squirrel;
 				PRODUCT_NAME = Squirrel;
 				SDKROOT = macosx;
-				SPARKLE_FEED_URL = "";
-				SPARKLE_PUBLIC_ED_KEY = "";
+				SPARKLE_FEED_URL = "https://johnwatso.github.io/Squirrel/appcast.xml";
+				SPARKLE_PUBLIC_ED_KEY = "rxaJsfCpTKtpqRubSfkJwKnztT5S8RHsdAueuT+jKck=";
 			};
 			name = Release;
 		};
@@ -947,8 +947,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.johnwatso.Squirrel;
 				PRODUCT_NAME = Squirrel;
 				SDKROOT = macosx;
-				SPARKLE_FEED_URL = "";
-				SPARKLE_PUBLIC_ED_KEY = "";
+				SPARKLE_FEED_URL = "https://johnwatso.github.io/Squirrel/appcast.xml";
+				SPARKLE_PUBLIC_ED_KEY = "rxaJsfCpTKtpqRubSfkJwKnztT5S8RHsdAueuT+jKck=";
 			};
 			name = Debug;
 		};
