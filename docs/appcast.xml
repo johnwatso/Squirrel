@@ -4,11 +4,11 @@
         <title>Squirrel</title>
         <item>
             <title>0.1.0</title>
-            <pubDate>Fri, 06 Nov 2026 09:28:42 +1300</pubDate>
+            <pubDate>Sun, 08 Nov 2026 13:08:03 +1300</pubDate>
             <sparkle:version>1</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnwatso/Squirrel/releases/download/v0.1.0/Squirrel-0.1.0.zip" length="6969034" type="application/octet-stream"/>
+            <enclosure url="https://github.com/johnwatso/Squirrel/releases/download/v0.1.0/Squirrel-0.1.0.zip" length="6969078" type="application/octet-stream" sparkle:edSignature="JbWvTK6I23gM3ne3IISadgFydDLw9VDAsp4mE52TRnbY02pBirsTb0sfBnDh+kLjQTJTZAPTqg8hzWKgebl9Bg=="/>
         </item>
     </channel>
 </rss>
