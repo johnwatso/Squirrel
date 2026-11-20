@@ -54,15 +54,36 @@ final class PowerHistoryTests: XCTestCase {
         XCTAssertEqual(events.map(\.kind), [.powerRestored, .powerLost])
     }
 
-    func testRemovingAUPSDeletesItsHistory() async throws {
+    func testReaddingRemovedUPSKeepsEventsAndPendingSample() async throws {
+        let suite = "SquirrelTests.RemovedUPS.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = HistoryTestCredentials()
+        let settings = SettingsStore(defaults: defaults, credentialStore: credentials)
         let history = PowerHistory(inMemory: true)
-        history.record(.powerLost, for: device)
-        try await waitForWrites(history)
-        history.removeHistory(for: device)
+        let monitor = UPSMonitor(settings: settings, publisher: PowerSourcePublisher(),
+                                 sleepAssertion: SleepAssertionService(),
+                                 notifications: NotificationService(settings: settings), history: history)
+        let original = UPSDevice(displayName: "Rack UPS", host: "UPS.local", upsName: "rack")
+        settings.upsert(original)
+        history.record(.powerLost, for: original.id)
+        history.record(reading(at: Date(), power: "120"), for: original.id)
         try await waitForWrites(history)
 
-        let events = await history.events(for: device)
-        XCTAssertTrue(events.isEmpty)
+        monitor.forget(original)
+        settings.remove(id: original.id)
+        try await waitForWrites(history)
+
+        let reloaded = SettingsStore(defaults: defaults, credentialStore: credentials)
+        XCTAssertTrue(reloaded.devices.isEmpty)
+        XCTAssertNotEqual(reloaded.historyIDForNewDevice(host: "ups.local", port: 3493, upsName: "other"), original.id)
+        XCTAssertNotEqual(reloaded.historyIDForNewDevice(host: "ups.local", port: 3494, upsName: "rack"), original.id)
+        let restoredID = reloaded.historyIDForNewDevice(host: "ups.local", port: 3493, upsName: "rack")
+        XCTAssertEqual(restoredID, original.id)
+        let samples = await history.samples(for: restoredID, in: .day)
+        let events = await history.events(for: restoredID)
+        XCTAssertEqual(samples.first?.power, 120)
+        XCTAssertEqual(events.map(\.kind), [.powerLost])
     }
 
     /// The Mac's chip is recorded beside the UPS, averaged over the minute
@@ -224,4 +245,10 @@ final class MacProtectionStatusTests: XCTestCase {
         XCTAssertEqual(evaluate(.published(entry), advice(sleep: 1), keepAwake: true).level, .active)
         XCTAssertEqual(evaluate(.published(entry), advice(sleep: 1), keepAwake: false).level, .attention)
     }
+}
+
+
+private struct HistoryTestCredentials: CredentialStoring {
+    func password(forAccount account: String) -> String? { nil }
+    func setPassword(_ password: String?, forAccount account: String) {}
 }

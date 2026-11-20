@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     static let manageWindowID = "manage-ups"
     static let assistantWindowID = "connect-ups"
     static let connectionWindowID = "ups-connection"
+    static let settingsWindowID = "squirrel-settings"
     static let historyWindowID = "power-history"
 
     /// Squirrel's windows. The Dock icon follows whether any of them is on
@@ -46,6 +47,7 @@ final class AppModel: ObservableObject {
     @Published var shouldOpenAssistantWindow = false
     @Published var shouldOpenConnectionWindow = false
     @Published var shouldOpenHistoryWindow = false
+    @Published var shouldOpenSettingsWindow = false
     /// Which UPS the history window shows. Set by whoever opens it, so the
     /// menu bar and the main window each open the history they mean.
     @Published var historyDeviceID: UUID?

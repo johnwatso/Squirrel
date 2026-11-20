@@ -906,14 +906,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Squirrel;
 				CODE_SIGN_ENTITLEMENTS = Squirrel/Squirrel.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = Squirrel/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Squirrel;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -932,14 +932,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Squirrel;
 				CODE_SIGN_ENTITLEMENTS = Squirrel/Squirrel.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = Squirrel/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Squirrel;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

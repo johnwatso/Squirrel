@@ -49,7 +49,7 @@ struct UPSManagementView: View {
             Button("Remove UPS", role: .destructive) { remove(device) }
             Button("Cancel", role: .cancel) { deviceToRemove = nil }
         } message: { _ in
-            Text("Squirrel will stop monitoring this UPS, macOS will no longer see it as a power source, and its history will be deleted. A UPS that is simply offline will reconnect on its own.")
+            Text("Squirrel will stop monitoring this UPS. Its saved history will be available if you add the same UPS again.")
         }
         .alert(
             "Rename UPS",

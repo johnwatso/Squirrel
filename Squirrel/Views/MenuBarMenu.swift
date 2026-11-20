@@ -159,8 +159,8 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
         }
 
         entries.append(.separator("app"))
-        entries.append(.action(id: "settings", title: "Settings…", symbol: "gearshape", key: ",") {
-            Self.openSettings()
+        entries.append(.action(id: "settings", title: "Settings…", symbol: "gearshape", key: ",") { [appModel] in
+            appModel.shouldOpenSettingsWindow = true
         })
         let updater = appModel.updater
         entries.append(.action(
@@ -249,6 +249,14 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
                 monitor.resume()
             })
         } else {
+            if settings.devices.contains(where: { device in
+                if case .failed = monitor.state(for: device) { return true }
+                return false
+            }) {
+                submenu.append(.action(id: "reconnect", title: "Reconnect to UPS", symbol: "arrow.clockwise") { [monitor] in
+                    monitor.restart()
+                })
+            }
             submenu.append(.action(id: "pause", title: "Pause Monitoring", symbol: "pause.circle") { [monitor] in
                 Task { await monitor.pause() }
             })
@@ -372,19 +380,6 @@ final class MenuBarMenu: NSObject, NSMenuDelegate {
     #endif
 
     // MARK: - Actions
-
-    /// SettingsLink is macOS 14+. Squirrel targets Ventura, so open the
-    /// Settings scene through the responder chain, whose selector was renamed
-    /// in macOS 14.
-    static func openSettings() {
-        let selector: Selector = if #available(macOS 14, *) {
-            Selector(("showSettingsWindow:"))
-        } else {
-            Selector(("showPreferencesWindow:"))
-        }
-        NSApp.sendAction(selector, to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
 
     /// Energy (Battery on a laptop), where the UPS Options sheet lives. The
     /// pane's legacy identifier: System Settings maps it to the current

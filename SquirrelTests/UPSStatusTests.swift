@@ -72,6 +72,23 @@ final class UPSReadingTests: XCTestCase {
         XCTAssertNil(reading.batteryRuntime)
     }
 
+    func testInvalidTelemetryKeepsTheReadingUsable() {
+        for value in ["", "N/A", "nan", "inf", "-inf", "1e30", "-1e30"] {
+            let variables = [
+                "ups.status": "OL",
+                "battery.charge": value,
+                "battery.runtime": value,
+                "ups.load": value,
+            ]
+            let reading = UPSReading(upsName: "ups", variables: variables)
+            XCTAssertTrue(reading.status.contains(.online))
+            XCTAssertNil(reading.batteryCharge, value)
+            XCTAssertNil(reading.batteryRuntime, value)
+            XCTAssertNil(reading.load, value)
+            XCTAssertEqual(reading.variables, variables)
+        }
+    }
+
     func testFreshnessIsMeasuredAgainstWhenTheReadingWasTaken() {
         let takenAt = Date()
         let reading = UPSReading(upsName: "ups", status: .init(statusString: "OL"), observedAt: takenAt)

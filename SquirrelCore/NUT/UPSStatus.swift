@@ -97,11 +97,16 @@ public struct UPSReading: Equatable, Sendable {
         self.upsName = upsName
         self.model = variables["device.model"] ?? variables["ups.model"]
         self.status = UPSStatusFlags(statusString: variables["ups.status"] ?? "")
-        self.batteryCharge = variables["battery.charge"].flatMap { Int(Double($0) ?? .nan) }
-        self.batteryRuntime = variables["battery.runtime"].flatMap { Int(Double($0) ?? .nan) }
-        self.load = variables["ups.load"].flatMap { Int(Double($0) ?? .nan) }
+        self.batteryCharge = variables["battery.charge"].flatMap(Self.parseInteger)
+        self.batteryRuntime = variables["battery.runtime"].flatMap(Self.parseInteger)
+        self.load = variables["ups.load"].flatMap(Self.parseInteger)
         self.variables = variables
         self.observedAt = observedAt
+    }
+
+    private static func parseInteger(_ value: String) -> Int? {
+        guard let number = Double(value) else { return nil }
+        return Int(exactly: number.rounded(.towardZero))
     }
 
     /// A reported variable, or nil when this UPS does not send it. Blank
@@ -114,6 +119,10 @@ public struct UPSReading: Equatable, Sendable {
 
     public func number(_ key: String) -> Double? {
         value(key).flatMap(Double.init)
+    }
+
+    public func integer(_ key: String, rounding: FloatingPointRoundingRule = .towardZero) -> Int? {
+        number(key).flatMap { Int(exactly: $0.rounded(rounding)) }
     }
 
     /// A reading older than this must not be presented to macOS as the truth.

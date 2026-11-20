@@ -50,11 +50,14 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
     }
 
     func format(_ value: Double) -> String {
+        let rounded = value.rounded().formatted(.number.precision(.fractionLength(0)).grouping(.never))
         switch self {
-        case .power: return "\(Int(value.rounded())) W"
-        case .load, .charge: return "\(Int(value.rounded()))%"
-        case .runtime: return UPSTelemetry.duration(seconds: Int(value * 60))
-        case .temperature: return "\(Int(value.rounded())) °C"
+        case .power: return "\(rounded) W"
+        case .load, .charge: return "\(rounded)%"
+        case .runtime:
+            guard let seconds = Int(exactly: (value * 60).rounded(.towardZero)) else { return "—" }
+            return UPSTelemetry.duration(seconds: seconds)
+        case .temperature: return "\(rounded) °C"
         }
     }
 

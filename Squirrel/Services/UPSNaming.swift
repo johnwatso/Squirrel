@@ -140,11 +140,11 @@ enum UPSNaming {
     /// "Ubiquiti 1500 VA UPS", from the nominal rating, when the model itself
     /// says nothing useful.
     private static func sizedName(maker: String, reading: UPSReading) -> String? {
-        if let va = reading.number("ups.power.nominal"), va > 0 {
-            return "\(maker) \(Int(va)) VA UPS"
+        if let rating = reading.integer("ups.power.nominal"), rating > 0 {
+            return "\(maker) \(rating) VA UPS"
         }
-        if let watts = reading.number("ups.realpower.nominal"), watts > 0 {
-            return "\(maker) \(Int(watts)) W UPS"
+        if let rating = reading.integer("ups.realpower.nominal"), rating > 0 {
+            return "\(maker) \(rating) W UPS"
         }
         return nil
     }

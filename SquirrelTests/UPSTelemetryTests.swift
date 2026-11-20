@@ -77,6 +77,21 @@ final class UPSTelemetryTests: XCTestCase {
         XCTAssertNil(UPSTelemetry.identity(for: UPSReading(upsName: "ups-rack", variables: [:])))
     }
 
+    func testInvalidPowerAndRuntimeValuesCanBeDisplayedSafely() {
+        let reading = reading([
+            "ups.model": "Rack UPS",
+            "ups.power.nominal": "inf",
+            "ups.realpower.nominal": "1e30",
+            "ups.power": "nan",
+            "ups.realpower": "inf",
+            "battery.runtime": "inf",
+        ])
+        XCTAssertEqual(UPSTelemetry.identity(for: reading), "Rack UPS")
+        XCTAssertNil(UPSTelemetry.watts(reading))
+        XCTAssertNil(UPSTelemetry.voltAmps(reading))
+        XCTAssertEqual(UPSTelemetry.batteryFields(for: reading).first { $0.label == "Runtime" }?.value, "inf")
+    }
+
     func testRuntimeReadsAsAPersonWouldSayIt() {
         XCTAssertEqual(UPSTelemetry.duration(seconds: 0), "0 min")
         XCTAssertEqual(UPSTelemetry.duration(seconds: 2520), "42 min")

@@ -131,14 +131,15 @@ enum UPSTelemetry {
                 guard let number = Double(raw) else { return raw }
                 return "\(Self.trim(number)) VA"
             case .seconds:
-                guard let number = Double(raw) else { return raw }
-                return duration(seconds: Int(number))
+                guard let number = Double(raw), let seconds = Int(exactly: number.rounded(.towardZero)) else { return raw }
+                return duration(seconds: seconds)
             }
         }
 
         /// Drops a pointless ".0" without rounding away a real decimal.
         private static func trim(_ value: Double) -> String {
-            value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
+            if let whole = Int(exactly: value) { return String(whole) }
+            return String(format: "%.1f", value)
         }
     }
 
@@ -226,10 +227,10 @@ enum UPSTelemetry {
         if let maker = UPSNaming.manufacturer(in: reading) {
             parts.append(maker)
         }
-        if let va = reading.number("ups.power.nominal") {
-            parts.append("\(Int(va)) VA")
-        } else if let watts = reading.number("ups.realpower.nominal") {
-            parts.append("\(Int(watts)) W")
+        if let va = reading.integer("ups.power.nominal") {
+            parts.append("\(va) VA")
+        } else if let watts = reading.integer("ups.realpower.nominal") {
+            parts.append("\(watts) W")
         } else if let model = reading.model {
             parts.append(model)
         }
@@ -238,11 +239,11 @@ enum UPSTelemetry {
 
     /// Whole watts for an at-a-glance value; the technical list keeps decimals.
     static func watts(_ reading: UPSReading) -> String? {
-        reading.number("ups.realpower").map { "\(Int($0.rounded())) W" }
+        reading.integer("ups.realpower", rounding: .toNearestOrAwayFromZero).map { "\($0) W" }
     }
 
     static func voltAmps(_ reading: UPSReading) -> String? {
-        reading.number("ups.power").map { "\(Int($0.rounded())) VA" }
+        reading.integer("ups.power", rounding: .toNearestOrAwayFromZero).map { "\($0) VA" }
     }
 
     /// Seconds as a person would say them: "42 min", "1 hr 1 min".

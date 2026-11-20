@@ -210,13 +210,9 @@ final class PowerHistory: ObservableObject {
         }
     }
 
-    func removeHistory(for deviceID: UUID) {
-        accumulators[deviceID] = nil
-        guard let store else { return }
-        Task {
-            await store.deleteAll(device: deviceID)
-            revision &+= 1
-        }
+    func flushPendingSample(for deviceID: UUID) {
+        guard let pending = accumulators.removeValue(forKey: deviceID) else { return }
+        flush(pending, for: deviceID)
     }
 
     private func flush(_ accumulator: Accumulator, for deviceID: UUID) {
@@ -405,11 +401,6 @@ actor PowerHistoryStore {
     func prune(samplesBefore: Date, eventsBefore: Date) {
         run("DELETE FROM samples WHERE t < ?") { sqlite3_bind_double($0, 1, samplesBefore.timeIntervalSince1970) }
         run("DELETE FROM events WHERE t < ?") { sqlite3_bind_double($0, 1, eventsBefore.timeIntervalSince1970) }
-    }
-
-    func deleteAll(device: UUID) {
-        run("DELETE FROM samples WHERE device = ?") { bind(device.uuidString, at: 1, in: $0) }
-        run("DELETE FROM events WHERE device = ?") { bind(device.uuidString, at: 1, in: $0) }
     }
 
     /// Averages each bucket. `AVG` skips NULLs, so a UPS that stopped

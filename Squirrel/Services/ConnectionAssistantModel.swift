@@ -601,10 +601,13 @@ final class ConnectionAssistantModel: ObservableObject {
         // configuration that can only fight with itself.
         let existing = editingDeviceID.flatMap { settings.device(id: $0) }
             ?? settings.devices.first {
-                $0.host == configuration.host && $0.port == configuration.port && $0.upsName == candidate.name
+                $0.host.caseInsensitiveCompare(configuration.host) == .orderedSame
+                    && $0.port == configuration.port && $0.upsName == candidate.name
             }
         var device = UPSDevice(
-            id: existing?.id ?? UUID(),
+            id: existing?.id ?? settings.historyIDForNewDevice(
+                host: configuration.host, port: configuration.port, upsName: candidate.name
+            ),
             // A name the user gave it is theirs: reconnecting must not
             // overwrite it with whatever the driver calls the model.
             displayName: chosenName(for: candidate, existing: existing, reading: reading),

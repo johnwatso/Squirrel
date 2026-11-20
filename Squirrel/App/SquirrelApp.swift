@@ -75,7 +75,7 @@ struct SquirrelApp: App {
         }
         .defaultSize(width: 680, height: 700)
 
-        SwiftUI.Settings {
+        Window("Squirrel Settings", id: AppModel.settingsWindowID) {
             PreferencesView()
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
@@ -85,6 +85,8 @@ struct SquirrelApp: App {
                 .onAppear { appModel.setWindow(.settings, visible: true) }
                 .onDisappear { appModel.setWindow(.settings, visible: false) }
         }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
 
@@ -118,6 +120,12 @@ struct MenuBarLifecycle: View {
                 NSApp.activate(ignoringOtherApps: true)
                 appModel.shouldOpenHistoryWindow = false
             }
+            .onReceive(appModel.$shouldOpenSettingsWindow) { shouldOpen in
+                guard shouldOpen else { return }
+                openWindow(id: AppModel.settingsWindowID)
+                NSApp.activate(ignoringOtherApps: true)
+                appModel.shouldOpenSettingsWindow = false
+            }
             .onReceive(appModel.$shouldOpenAssistantWindow) { shouldOpen in
                 guard shouldOpen else { return }
                 openWindow(id: AppModel.assistantWindowID)
@@ -146,6 +154,10 @@ private struct SquirrelCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .appInfo) {
             CheckForUpdatesButton(updater: appModel.updater)
+        }
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") { appModel.shouldOpenSettingsWindow = true }
+                .keyboardShortcut(",")
         }
         CommandGroup(replacing: .newItem) {
             Button("Add UPS…") { appModel.beginConnectionAssistant() }

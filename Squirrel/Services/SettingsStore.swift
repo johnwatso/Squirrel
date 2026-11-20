@@ -7,9 +7,11 @@ final class SettingsStore: ObservableObject {
 
     private enum Keys {
         static let devices = "configuredUPSDevices"
+        static let removedHistoryIDs = "removedUPSHistoryIDs"
         static let preferences = "preferences"
     }
 
+    private var removedHistoryIDs: [String: UUID]
     private let defaults: UserDefaults
     let credentialStore: any CredentialStoring
     private let encoder = JSONEncoder()
@@ -18,6 +20,7 @@ final class SettingsStore: ObservableObject {
     init(defaults: UserDefaults = .standard, credentialStore: any CredentialStoring = KeychainCredentialStore()) {
         self.defaults = defaults
         self.credentialStore = credentialStore
+        self.removedHistoryIDs = Self.load([String: UUID].self, forKey: Keys.removedHistoryIDs, from: defaults) ?? [:]
         self.devices = Self.load([UPSDevice].self, forKey: Keys.devices, from: defaults) ?? []
         self.preferences = Self.load(AppPreferences.self, forKey: Keys.preferences, from: defaults) ?? AppPreferences()
         if let first = self.devices.first(where: { $0.publishesToSystem })?.id {
@@ -37,6 +40,18 @@ final class SettingsStore: ObservableObject {
 
     func device(id: UUID) -> UPSDevice? { devices.first { $0.id == id } }
 
+    /// History is keyed by device UUID. Reuse the archived UUID when the
+    /// setup assistant adds the same NUT endpoint again.
+    func historyIDForNewDevice(host: String, port: UInt16, upsName: String) -> UUID {
+        let key = Self.historyKey(host: host, port: port, upsName: upsName)
+        guard let id = removedHistoryIDs[key], device(id: id) == nil else { return UUID() }
+        return id
+    }
+
+    private static func historyKey(host: String, port: UInt16, upsName: String) -> String {
+        "\(host.lowercased()):\(port)/\(upsName)"
+    }
+
     func upsert(_ device: UPSDevice) {
         var updated = devices.map { existing in
             var entry = existing
@@ -49,6 +64,11 @@ final class SettingsStore: ObservableObject {
             updated.append(device)
         }
         devices = updated
+        let key = Self.historyKey(host: device.host, port: device.port, upsName: device.upsName)
+        if removedHistoryIDs[key] == device.id {
+            removedHistoryIDs[key] = nil
+            save(removedHistoryIDs, forKey: Keys.removedHistoryIDs)
+        }
     }
 
     func setProtectionDevice(_ id: UUID) {
@@ -62,6 +82,9 @@ final class SettingsStore: ObservableObject {
 
     func remove(id: UUID) {
         if let device = device(id: id) {
+            let key = Self.historyKey(host: device.host, port: device.port, upsName: device.upsName)
+            removedHistoryIDs[key] = device.id
+            save(removedHistoryIDs, forKey: Keys.removedHistoryIDs)
             credentialStore.setPassword(nil, forAccount: device.keychainAccount)
         }
         devices.removeAll { $0.id == id }

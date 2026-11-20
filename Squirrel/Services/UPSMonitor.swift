@@ -129,16 +129,19 @@ final class UPSMonitor: ObservableObject {
         state(for: device).reading ?? lastReadings[device.id]
     }
 
-    /// Drops everything Squirrel remembers about a UPS that is being removed.
+    /// Clears live monitoring state and writes the last pending history sample.
     func forget(_ device: UPSDevice) {
         lastReadings[device.id] = nil
         lastUpdated[device.id] = nil
         states[device.id] = nil
         protectionVerifiedAt[device.id] = nil
         lastPowerCondition[device.id] = nil
+        availableCommands[device.id] = nil
+        briefDrops[device.id] = nil
+        unstableRecordedAt[device.id] = nil
         connectionLost.remove(device.id)
         saveVerification()
-        history.removeHistory(for: device.id)
+        history.flushPendingSample(for: device.id)
     }
 
     func commands(for device: UPSDevice) -> [String] {
@@ -200,6 +203,7 @@ final class UPSMonitor: ObservableObject {
                     await self?.handle(reading: reading, for: device)
                     if !haveCommands {
                         let commands = (try? await client.listCommands(ups: device.upsName)) ?? []
+                        guard !Task.isCancelled else { break }
                         self?.store(commands: commands, for: device)
                         haveCommands = true
                     }
