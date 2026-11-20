@@ -3,12 +3,12 @@
     <channel>
         <title>Squirrel</title>
         <item>
-            <title>0.1.0</title>
-            <pubDate>Sun, 08 Nov 2026 13:08:03 +1300</pubDate>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <title>0.1.1</title>
+            <pubDate>Fri, 20 Nov 2026 15:53:58 +1300</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/johnwatso/Squirrel/releases/download/v0.1.0/Squirrel-0.1.0.zip" length="6969078" type="application/octet-stream" sparkle:edSignature="JbWvTK6I23gM3ne3IISadgFydDLw9VDAsp4mE52TRnbY02pBirsTb0sfBnDh+kLjQTJTZAPTqg8hzWKgebl9Bg=="/>
+            <enclosure url="https://github.com/johnwatso/Squirrel/releases/download/v0.1.1/Squirrel-0.1.1.zip" length="6981775" type="application/octet-stream" sparkle:edSignature="CymGlRIGJ7r0L5/yu7W4BuQ9G1LIWJJYrDjeFyJT3ztRUV7vdgcULCE12o3SfcyfyBCrRFKUhZHUgqKXQRLQAw=="/>
         </item>
     </channel>
 </rss>
